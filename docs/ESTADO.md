@@ -15,9 +15,9 @@ Port nativo para PC de *Okami* (PS2, `SLUS-21115`).
 | Inicialização de tela e apresentação GS OpenGL | ✅ Concluído | Janela GLFW/Win32, OpenGL 3.3, FBO 640x512 2x, WASAPI 48kHz |
 | Boot do `crt0` e entrada no código principal do jogo | ✅ Concluído | Inicialização do SDK superada; código do jogo em execução em `0x003439D8` |
 | Inicialização de subsistemas nativos (IOP Heap, Áudio, DTX/SJUNI, Padman) | ✅ Concluído | Todos os canais de áudio, sintetizador e controle inicializados com sucesso |
-| Carregamento de dados de disco e cache de arquivos (`DVCI`) | ✅ Concluído | Virtual Cache Interface ativo; leitura contínua de setores do disco |
-| Execução contínua da engine do jogo | 🔧 Em progresso | Mais de 4 bilhões de ciclos EE executados continuamente sem travamentos |
-| Apresentação de menus / telas de título | ⏳ Próximo | Renderização de quadros GS pós-inicialização de cena |
+| Carregamento de dados de disco e cache de arquivos (`DVCI`) | ✅ Concluído | `0FLISTDV.DIR`, `WOLVES_U.FST`, `_DATA0.AFS` (2 GB), `_DATA1.AFS` (1.7 GB) localizados e abertos |
+| Execução contínua da engine do jogo | ✅ Concluído | Loop principal da engine em execução contínua com sincronização HLE de semáforos e RPCs |
+| Apresentação de menus / telas de título | 🔧 Em progresso | Processamento de listas de comandos gráficos GS/VIF1 e render-targets |
 | Campanha completa jogável | ⏳ Futuro | Objetivos futuros |
 
 ## Registro de Padrões e Soluções Automatizadas
@@ -80,3 +80,15 @@ Port nativo para PC de *Okami* (PS2, `SLUS-21115`).
 12. **Restauração do Printf Nativo de Diagnóstico (`0x003CA8B0..0x003CA930`)**:
     - *Padrão*: Mensagens de log da engine silenciosas devido ao truncamento de `sub_003CA8B0` para 4 bytes em `funcmap.csv`.
     - *Solução por Padrão*: Conexão de `okamiOverride_Printf` ao `stderr`, revelando mensagens e diagnósticos em tempo real da engine do jogo (`PS2RNA`, `DVCI`).
+
+13. **Sincronização HLE do Sistema de Arquivos CDVD e Resolução de Bloqueio DVCI (`0x80000595`, `0x80000597`, `0x80000593`)**:
+    - *Padrão*: Bloqueio permanente em laço de espera após o diagnóstico `"DVCI: File cache was not hit. \WOLVES_U.FST;1"`, acompanhado de chamadas repetitivas de `CD SCMD rpcNum=0x0C` (`sceCdStatus`).
+    - *Causa*: 
+      1. No PS2 real, a rotina de leitura `sceCdRead` (`sub_003EFDB0`) marca o flag de ocupado `0x00442474 = 1` e decrementa o semáforo de sincronização `0x00442468` via `PollSema`, dependendo de uma interrupção assíncrona do IOP (`sub_003EEB00` -> `sub_003EEB60`) para limpar o flag e sinalizar o semáforo após a transferência DMA.
+      2. Adicionalmente, `sub_00401CA8` (`sceSifCheckStatRpc`) inspeciona o offset `0x10` da estrutura de pacote SIF RPC do cliente (`pkt + 0x10`), que permanecia marcado como ocupado (`1`).
+      3. Com isso, `sub_003EF428` (`sceCdSync`) entrava em espera infinita chamando `SleepThread`, e qualquer chamada subsequente a `sceCdSearchFile` falhava no `PollSema(0x00442468)`.
+    - *Solução Automatizada por Padrão*:
+      1. Atualizado o despachante de RPCs nativo para limpar imediatamente `pkt + 0x10 = 0`, liberando `sceSifCheckStatRpc`.
+      2. Limpeza dos flags de sincronização `0x00442474`, `0x004424A0` e `0x0044245C` no término de cada comando assíncrono.
+      3. Sinalização direta dos semáforos de sincronização de CDVD (`0x00442468`, `0x00442460`, `0x0044246C`, `0x00442470`) via `runtime->eeScheduler().signalSemaphore()` se o contador estiver em zero.
+      4. Resultado: Desbloqueio imediato do subsistema de arquivos DVCI, permitindo a localização e leitura bem-sucedida de `0FLISTDV.DIR`, `WOLVES_U.FST`, `_DATA0.AFS` (2.14 GB) e `_DATA1.AFS` (1.79 GB).

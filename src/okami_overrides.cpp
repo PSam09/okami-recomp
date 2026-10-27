@@ -16,6 +16,10 @@
 #include <chrono>
 #include <string>
 #include <algorithm>
+#include <fstream>
+#include <sstream>
+#include <vector>
+#include <cctype>
 
 namespace ps2_syscalls
 {
@@ -34,6 +38,100 @@ namespace
     void writeGuest32(uint8_t *rdram, uint32_t addr, uint32_t value)
     {
         std::memcpy(rdram + (addr & 0x01FFFFFFu), &value, sizeof(value));
+    }
+
+    struct DiscEntry
+    {
+        uint32_t lsn = 0;
+        uint32_t size = 0;
+        std::string filename;
+    };
+
+    static std::vector<DiscEntry> s_discEntries;
+    static bool s_discLayoutLoaded = false;
+
+    std::string normalizeDiscName(std::string name)
+    {
+        if (name.rfind("cdrom0:", 0) == 0) name = name.substr(7);
+        else if (name.rfind("cdrom:", 0) == 0) name = name.substr(6);
+
+        while (!name.empty() && (name.front() == '\\' || name.front() == '/'))
+            name.erase(name.begin());
+
+        const size_t semi = name.find(';');
+        if (semi != std::string::npos)
+            name = name.substr(0, semi);
+
+        for (char &c : name)
+        {
+            if (c == '\\')
+                c = '/';
+            else
+                c = static_cast<char>(std::toupper(static_cast<unsigned char>(c)));
+        }
+
+        return name;
+    }
+
+    void loadDiscLayout()
+    {
+        if (s_discLayoutLoaded) return;
+        s_discLayoutLoaded = true;
+
+        std::ifstream layout(".disc_layout");
+        if (!layout.is_open())
+        {
+            layout.open("game/.disc_layout");
+        }
+
+        if (layout.is_open())
+        {
+            std::string line;
+            while (std::getline(layout, line))
+            {
+                std::istringstream iss(line);
+                std::string tag;
+                iss >> tag;
+                if (tag == "file")
+                {
+                    DiscEntry entry;
+                    iss >> entry.lsn >> entry.size >> entry.filename;
+                    s_discEntries.push_back(entry);
+                }
+            }
+        }
+        else
+        {
+            // Fallback para o layout fixo de Okami SLUS-21115
+            s_discEntries.push_back({277u, 2147561472u, "_DATA0.AFS"});
+            s_discEntries.push_back({1048891u, 275921u, "MODULES/IOPRP300.IMG"});
+            s_discEntries.push_back({1049026u, 315008u, "MODULES/IRX.IMS"});
+            s_discEntries.push_back({1049180u, 1794191360u, "_DATA1.AFS"});
+            s_discEntries.push_back({1925250u, 38u, "0FLISTDV.DIR"});
+            s_discEntries.push_back({1925251u, 3903532u, "SLUS_211.15"});
+            s_discEntries.push_back({1927158u, 57u, "SYSTEM.CNF"});
+            s_discEntries.push_back({1927159u, 73520u, "WOLVES_U.FST"});
+        }
+    }
+
+    std::ifstream openDiscFile(const std::string &filename)
+    {
+        std::ifstream stream(filename, std::ios::binary);
+        if (!stream.is_open())
+        {
+            stream.open("game/" + filename, std::ios::binary);
+        }
+        if (!stream.is_open())
+        {
+            std::string winPath = filename;
+            std::replace(winPath.begin(), winPath.end(), '/', '\\');
+            stream.open(winPath, std::ios::binary);
+            if (!stream.is_open())
+            {
+                stream.open("game\\" + winPath, std::ios::binary);
+            }
+        }
+        return stream;
     }
 
     // Override para a rotina de busca de tabela do Sony SDK (FindAddress probe).
@@ -245,14 +343,184 @@ namespace
                              rpcNum, handle, recvBuff);
             }
         }
+        // RPC 0x80000597: CD_SERVER_SEARCHFILE (busca de arquivos no disco nativo do PC)
+        else if (clientPtr == 0x007B5080u || rpcId == 0x80000597u)
+        {
+            loadDiscLayout();
+            std::string reqPath;
+            if (sendBuff)
+            {
+                const char *rawPath = reinterpret_cast<const char *>(rdram + ((sendBuff + 0x24u) & 0x01FFFFFFu));
+                reqPath = normalizeDiscName(rawPath);
+            }
+
+            const DiscEntry *found = nullptr;
+            for (const auto &entry : s_discEntries)
+            {
+                if (normalizeDiscName(entry.filename) == reqPath)
+                {
+                    found = &entry;
+                    break;
+                }
+            }
+
+            if (found && sendBuff)
+            {
+                writeGuest32(rdram, sendBuff + 0x00u, found->lsn);
+                writeGuest32(rdram, sendBuff + 0x04u, found->size);
+                char nameBuf[16] = {0};
+                std::strncpy(nameBuf, reqPath.c_str(), 15);
+                std::memcpy(rdram + ((sendBuff + 0x08u) & 0x01FFFFFFu), nameBuf, 16);
+                std::memset(rdram + ((sendBuff + 0x18u) & 0x01FFFFFFu), 0, 8); // date
+                if (recvBuff)
+                {
+                    writeGuest32(rdram, recvBuff, 1u);
+                }
+                std::fprintf(stderr, "[okami-overrides] sceCdSearchFile '%s' -> lsn=%u size=%u (sucesso)\n",
+                             reqPath.c_str(), found->lsn, found->size);
+            }
+            else
+            {
+                if (recvBuff)
+                {
+                    writeGuest32(rdram, recvBuff, 0u);
+                }
+                std::fprintf(stderr, "[okami-overrides] sceCdSearchFile '%s' -> nao encontrado\n", reqPath.c_str());
+            }
+        }
+        // RPC 0x80000595: CD_SERVER_NCMD (comandos assincronos: sceCdRead, sceCdSeek, etc.)
+        else if (clientPtr == 0x00443610u || rpcId == 0x80000595u)
+        {
+            loadDiscLayout();
+            if (rpcNum == 1u && sendBuff) // CD_NCMD_READ
+            {
+                const uint32_t lsn = readGuest32(rdram, sendBuff + 0x00u);
+                const uint32_t sectors = readGuest32(rdram, sendBuff + 0x04u);
+                const uint32_t bufAddr = readGuest32(rdram, sendBuff + 0x08u);
+                const uint32_t totalBytes = sectors * 2048u;
+
+                bool readSuccess = false;
+                for (const auto &entry : s_discEntries)
+                {
+                    const uint32_t fileSectors = (entry.size + 2047u) / 2048u;
+                    if (lsn >= entry.lsn && lsn < entry.lsn + fileSectors)
+                    {
+                        const uint64_t fileOffset = static_cast<uint64_t>(lsn - entry.lsn) * 2048u;
+                        std::ifstream stream = openDiscFile(entry.filename);
+                        if (stream.is_open())
+                        {
+                            stream.seekg(static_cast<std::streamoff>(fileOffset));
+                            const size_t bytesToRead = std::min<uint64_t>(totalBytes, entry.size > fileOffset ? entry.size - fileOffset : 0u);
+                            uint8_t *dst = rdram + (bufAddr & 0x01FFFFFFu);
+                            stream.read(reinterpret_cast<char *>(dst), static_cast<std::streamsize>(bytesToRead));
+                            if (bytesToRead < totalBytes)
+                            {
+                                std::memset(dst + bytesToRead, 0, totalBytes - bytesToRead);
+                            }
+                            readSuccess = true;
+                            std::fprintf(stderr, "[okami-overrides] sceCdRead lsn=%u sectors=%u buf=0x%08x -> %zu bytes lidos de '%s'\n",
+                                         lsn, sectors, bufAddr, bytesToRead, entry.filename.c_str());
+                        }
+                        else
+                        {
+                            std::fprintf(stderr, "[okami-overrides] sceCdRead nao pode abrir '%s'!\n", entry.filename.c_str());
+                        }
+                        break;
+                    }
+                }
+
+                if (!readSuccess)
+                {
+                    std::fprintf(stderr, "[okami-overrides] sceCdRead lsn=%u sectors=%u buf=0x%08x -> nao mapeado em nenhum arquivo!\n",
+                                 lsn, sectors, bufAddr);
+                }
+
+                if (recvBuff)
+                {
+                    writeGuest32(rdram, recvBuff, readSuccess ? 1u : 0u);
+                }
+            }
+            else
+            {
+                if (recvBuff)
+                {
+                    writeGuest32(rdram, recvBuff, 1u);
+                }
+            }
+        }
+        // RPC 0x80000593: CD_SERVER_SCMD (comandos sincronos: status, disk type, get error)
+        else if (clientPtr == 0x00443FC0u || rpcId == 0x80000593u)
+        {
+            uint32_t callerOfCaller = 0;
+            if (ra == 0x003F0144u)
+            {
+                const uint32_t sp = getRegU32(ctx, 29);
+                callerOfCaller = readGuest32(rdram, sp + 0x20u);
+            }
+
+            if (recvBuff)
+            {
+                if (rpcNum == 0x0Cu) // CD_SCMD_STATUS
+                {
+                    // SCECdStatPause (0x0A): disco pronto para leitura
+                    writeGuest32(rdram, recvBuff, 0x0Au);
+                }
+                else if (rpcNum == 0x03u) // CD_SCMD_GETDISKTYPE
+                {
+                    writeGuest32(rdram, recvBuff, 0x14u); // SCECdPS2DVD
+                }
+                else
+                {
+                    writeGuest32(rdram, recvBuff, 0u);
+                }
+            }
+            std::fprintf(stderr, "[okami-overrides] CD SCMD rpcNum=0x%02x -> recvBuff=0x%08x val=0x%08x (caller=0x%08x)\n",
+                         rpcNum, recvBuff, recvBuff ? readGuest32(rdram, recvBuff) : 0u, callerOfCaller);
+        }
+        // RPC 0x80000592: CD_SERVER_INIT (inicializacao do driver de CD/DVD)
+        else if (clientPtr == 0x007B50A8u || rpcId == 0x80000592u)
+        {
+            if (recvBuff)
+            {
+                writeGuest32(rdram, recvBuff, 1u);
+            }
+            std::fprintf(stderr, "[okami-overrides] CD INIT RPC rpcNum=0x%02x -> ok\n", rpcNum);
+        }
         else
         {
             ps2_syscalls::sceSifCallRpc(rdram, ctx, runtime);
         }
 
-        // Em audio nativo no PC, transferencias de som concluem imediatamente
-        writeGuest32(rdram, 0x00442474u, 0u);
-        writeGuest32(rdram, 0x004424A0u, 0u);
+        // Notifica que o comando SIF RPC foi concluido de forma sincrona no PC:
+        // 1. Marca o pacote SIF RPC do cliente como concluido (nao ocupado para sceSifCheckStatRpc)
+        if (clientPtr)
+        {
+            const uint32_t pkt = readGuest32(rdram, clientPtr + 0x00u);
+            if (pkt != 0u)
+            {
+                writeGuest32(rdram, pkt + 0x10u, 0u);
+            }
+        }
+
+        // 2. Conclui estado do driver CDVD e zera flags de ocupado
+        writeGuest32(rdram, 0x00442474u, 0u); // s_cd_sync_flag = 0
+        writeGuest32(rdram, 0x004424A0u, 0u); // s_cd_cmd_type = 0
+        writeGuest32(rdram, 0x0044245Cu, 0u); // s_cd_busy = 0
+
+        // 3. Sinaliza semaforos de sincronizacao de CDVD se estiverem com count = 0
+        for (uint32_t semaAddr : {0x00442468u, 0x00442460u, 0x0044246Cu, 0x00442470u})
+        {
+            const uint32_t semaId = readGuest32(rdram, semaAddr);
+            if (semaId != 0u && semaId != 0xFFFFFFFFu)
+            {
+                auto *sem = runtime->eeScheduler().semaphore(static_cast<int>(semaId));
+                if (sem && sem->count == 0)
+                {
+                    runtime->eeScheduler().signalSemaphore(static_cast<int>(semaId), false);
+                }
+            }
+        }
+
         setReturnS32(ctx, 0);
         ctx->pc = ra;
     }
@@ -267,7 +535,20 @@ namespace
         if (fmtPtr)
         {
             const char *fmt = reinterpret_cast<const char *>(rdram + (fmtPtr & 0x01FFFFFFu));
-            std::fprintf(stderr, "[okami-printf] %s", fmt);
+            const uint32_t a1 = getRegU32(ctx, 5);
+            const uint32_t a2 = getRegU32(ctx, 6);
+            const uint32_t a3 = getRegU32(ctx, 7);
+            char buf[512];
+            if (std::strstr(fmt, "%s") != nullptr)
+            {
+                const char *s1 = a1 ? reinterpret_cast<const char *>(rdram + (a1 & 0x01FFFFFFu)) : "(null)";
+                std::snprintf(buf, sizeof(buf), fmt, s1, a2, a3);
+            }
+            else
+            {
+                std::snprintf(buf, sizeof(buf), fmt, a1, a2, a3);
+            }
+            std::fprintf(stderr, "[okami-printf] %s", buf);
         }
         const uint32_t ra = getRegU32(ctx, 31);
         setReturnS32(ctx, 0);

@@ -14,4 +14,5 @@ if (Test-Path (Join-Path $RepoRoot 'src\*.h')) {
 $bld = Join-Path $work 'PS2Recomp\out\build'
 Write-Host "Compilando ps2EntryRunner com Ninja..."
 cmake --build $bld --target ps2EntryRunner
+if ($LASTEXITCODE -ne 0) { throw "Falha na compilacao ($LASTEXITCODE)" }
 Write-Host "Recompilacao rapida concluida com sucesso!"

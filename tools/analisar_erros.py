@@ -32,8 +32,8 @@ PATRONES = [
 
 def analizar_log(ruta_log: Path):
     if not ruta_log.exists():
-        print(f"Log no encontrado: {ruta_log}")
-        return {}
+        print(f"Log no encontrado: {ruta_log} (Aun no se ha ejecutado ninguna compilacion o ejecucion)")
+        return {}, []
 
     coincidencias = defaultdict(list)
     lineas_no_clasificadas = []

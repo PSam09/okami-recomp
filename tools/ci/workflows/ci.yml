@@ -19,3 +19,4 @@ jobs:
         run: |
           python3 tools/ci/validar_config.py
           python3 tools/ci/patches.py
+          python3 tools/estado/gerar.py --comprobar

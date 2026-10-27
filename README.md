@@ -59,6 +59,10 @@ flowchart LR
 
 ## Current status
 
+<a href="docs/estado/detalhes.en.md"><img src="docs/estado/mapa.en.svg" alt="Port status map: Sony SDK library functions and PS2 hardware components, colored by status" width="100%"></a>
+
+Per-library and per-component breakdown: [`docs/estado/detalhes.en.md`](docs/estado/detalhes.en.md). Regenerated from `docs/estado/dados.toml` by `tools/estado/gerar.py` (and automatically on push to `main`).
+
 See [docs/ESTADO.md](docs/ESTADO.md) for detailed notes and research log.
 
 | Milestone | Status |

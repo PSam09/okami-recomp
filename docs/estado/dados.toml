@@ -1,0 +1,198 @@
+# Dados do mapa de estado visual (docs/estado/mapa.*.svg e docs/estado/detalhes.*.md).
+# Para atualizar o gráfico e as tabelas, execute:  python tools/estado/gerar.py
+#
+# Estados: "ok" (funciona), "parcial" (funciona com pendências ou em teste), "pendiente" (não implementado ainda).
+
+# ---------------------------------------------------------------------------------------------------------
+# Painel 1: Bibliotecas estáticas do Sony SDK ligadas no executável SLUS_211.15.
+# Cada função em config/funcmap.csv entre `desde` e `hasta` representa uma célula no mapa visual.
+# ---------------------------------------------------------------------------------------------------------
+[librerias]
+desde = 0x003DC0A0
+hasta = 0x00407E5C
+
+[[librerias.grupo]]
+nombre = "libgraph"
+inicio = 0x003DC0A0
+estado = "ok"
+nota = { pt = "Renderizador nativo OpenGL com render targets (FBO), resolução interna 2x+", en = "Native OpenGL render-target renderer (FBO), 2x+ internal resolution" }
+
+[[librerias.grupo]]
+nombre = "libdma"
+inicio = 0x003E0048
+estado = "ok"
+nota = { pt = "Cadeias DMA despachadas diretamente para a GPU e VIF1/VU1 com buffers reutilizáveis", en = "DMA chains dispatched straight to GPU and VIF1/VU1 with reusable buffers" }
+
+[[librerias.grupo]]
+nombre = "libcdvd"
+inicio = 0x003EA110
+estado = "ok"
+nota = { pt = "Lê arquivos extraídos diretamente do disco com mapeamento exato de setores (.disc_layout)", en = "Reads disc files directly from exact sector layout (.disc_layout)" }
+
+[[librerias.grupo]]
+nombre = "libpad"
+inicio = 0x003F20B8
+estado = "parcial"
+nota = { pt = "Mapeamento nativo de controle (DualShock 2 / gamepad / teclado via SDL2)", en = "Native controller service (DualShock 2 / gamepad / keyboard via SDL2)" }
+
+[[librerias.grupo]]
+nombre = "libsd"
+inicio = 0x003F8060
+estado = "parcial"
+nota = { pt = "Motor de som nativo guiado por chamadas LIBSD e streaming direto CRI ADX", en = "Native sound engine driven by LIBSD calls and CRI ADX streaming" }
+
+[[librerias.grupo]]
+nombre = "libkernel"
+inicio = 0x003FE390
+estado = "ok"
+nota = { pt = "Kernel EE: threads, semáforos, alarmes e despacho de interrupções", en = "EE Kernel: threads, semaphores, alarms and interrupt dispatch" }
+
+[[librerias.grupo]]
+nombre = "sif"
+inicio = 0x003FEB40
+estado = "ok"
+nota = { pt = "Comunicação SIF: RPC e DMA entre EE e subsistemas de E/S", en = "SIF communication: EE ↔ IOP RPC and DMA" }
+
+[[librerias.grupo]]
+nombre = "libc"
+inicio = 0x00400910
+estado = "ok"
+nota = { pt = "Biblioteca C padrão nativa (formatação de texto, memória e utilitários)", en = "Standard C library (text formatting, memory and utilities)" }
+
+[[librerias.grupo]]
+nombre = "libm"
+inicio = 0x00405080
+estado = "ok"
+nota = { pt = "Funções matemáticas em ponto flutuante com controle de arredondamento MXCSR em x86-64", en = "Floating point math routines with x86-64 MXCSR rounding control" }
+
+# ---------------------------------------------------------------------------------------------------------
+# Painel 2: Hardware do PS2 / Substituições Nativas no PC.
+# Cada componente possui um peso proporcional à sua complexidade.
+# ---------------------------------------------------------------------------------------------------------
+[[hardware.grupo]]
+nombre = "EE"
+
+  [[hardware.grupo.componente]]
+  corto = "R5900"
+  nombre = { pt = "CPU R5900 (recompilada para C++)", en = "R5900 CPU (recompiled to C++)" }
+  estado = "ok"
+  peso = 5
+  nota = { pt = "12.806 funções estaticamente recompiladas para C++ x64", en = "12,806 functions statically recompiled to x64 C++" }
+
+  [[hardware.grupo.componente]]
+  corto = "Kernel"
+  nombre = { pt = "Kernel: threads, semáforos e alarmes", en = "Kernel: threads, semaphores and alarms" }
+  estado = "ok"
+  peso = 3
+
+  [[hardware.grupo.componente]]
+  corto = "FPU/MMI"
+  nombre = { pt = "FPU (COP1) e instruções multimídia MMI", en = "FPU (COP1) and MMI instructions" }
+  estado = "ok"
+  peso = 2
+
+  [[hardware.grupo.componente]]
+  corto = "INTC"
+  nombre = { pt = "INTC: VSync e interrupção do GS", en = "INTC: VSync and GS interrupt" }
+  estado = "ok"
+  peso = 2
+
+  [[hardware.grupo.componente]]
+  corto = "DMAC"
+  nombre = { pt = "Controlador DMA nativo", en = "Native DMA controller" }
+  estado = "ok"
+  peso = 2
+  nota = { pt = "Cadeias DMA vão direto para a GPU sem emulação de barramento", en = "DMA chains go straight to GPU without bus emulation" }
+
+  [[hardware.grupo.componente]]
+  corto = "Timers"
+  nombre = { pt = "Temporizadores nativos", en = "Native timers" }
+  estado = "ok"
+  peso = 1
+
+[[hardware.grupo]]
+nombre = "GS / VU"
+
+  [[hardware.grupo.componente]]
+  corto = "GS"
+  nombre = { pt = "GS: primitivas e framebuffer", en = "GS: primitives and framebuffer" }
+  estado = "parcial"
+  peso = 3
+  nota = { pt = "Renderizador OpenGL nativo com resolução interna 2x+", en = "Native OpenGL renderer with 2x+ internal resolution" }
+
+  [[hardware.grupo.componente]]
+  corto = "VIF1/VU1"
+  nombre = { pt = "VIF1 e VU1", en = "VIF1 and VU1" }
+  estado = "parcial"
+  peso = 3
+  nota = { pt = "Microcódigo compilado AOT e UNPACK rápido com suporte a DVP overlays", en = "Ahead-of-time microcode and fast UNPACK with DVP overlay support" }
+
+  [[hardware.grupo.componente]]
+  corto = "Tex/CLUT"
+  nombre = { pt = "GS: texturas e tabelas CLUT", en = "GS: textures and CLUT tables" }
+  estado = "parcial"
+  peso = 2
+  nota = { pt = "Armazenamento em VRAM da GPU sem custo de emulação de eDRAM", en = "Native GPU texture store without eDRAM emulation" }
+
+  [[hardware.grupo.componente]]
+  corto = "GIF"
+  nombre = { pt = "GIF (PATH1-3)", en = "GIF (PATH1-3)" }
+  estado = "ok"
+  peso = 2
+
+  [[hardware.grupo.componente]]
+  corto = "DVP/VU0"
+  nombre = { pt = "DVP Overlays / VU0", en = "DVP Overlays / VU0" }
+  estado = "parcial"
+  peso = 2
+  nota = { pt = "Gerenciamento de microcódigo via tabelas .DVP.ovlytab no ELF", en = "Microcode overlay management via .DVP.ovlytab tables in ELF" }
+
+[[hardware.grupo]]
+nombre = "IOP"
+
+  [[hardware.grupo.componente]]
+  corto = "R3000A"
+  nombre = { pt = "CPU R3000A / Módulos IRX", en = "R3000A CPU / IRX Modules" }
+  estado = "ok"
+  peso = 3
+  nota = { pt = "Módulos IRX compilados AOT ou executados via serviços HLE", en = "IRX modules compiled AOT or handled via native HLE" }
+
+  [[hardware.grupo.componente]]
+  corto = "SPU2"
+  nombre = { pt = "SPU2: áudio e streaming CRI ADX", en = "SPU2: audio and CRI ADX streaming" }
+  estado = "parcial"
+  peso = 3
+  nota = { pt = "Motor de som nativo guiado por LIBSD e reprodução de canais ADX", en = "Native sound engine driven by LIBSD and ADX streaming channels" }
+
+  [[hardware.grupo.componente]]
+  corto = "IRX"
+  nombre = { pt = "Módulos IRX originais", en = "Original IRX modules" }
+  estado = "ok"
+  peso = 2
+
+  [[hardware.grupo.componente]]
+  corto = "SIF"
+  nombre = { pt = "SIF: RPC e DMA EE ↔ IOP", en = "SIF: EE ↔ IOP RPC and DMA" }
+  estado = "ok"
+  peso = 2
+
+  [[hardware.grupo.componente]]
+  corto = "CDVD"
+  nombre = { pt = "CDVD: leitor de disco com layout nativo", en = "CDVD: disc reader with native layout" }
+  estado = "ok"
+  peso = 2
+  nota = { pt = "Leitura instantânea de setores originais (.disc_layout)", en = "Instant raw reading from original sectors (.disc_layout)" }
+
+  [[hardware.grupo.componente]]
+  corto = "Pad"
+  nombre = { pt = "Controle DualShock 2 nativo", en = "Native DualShock 2 controller" }
+  estado = "parcial"
+  peso = 2
+  nota = { pt = "Serviço de gamepad nativo com suporte a XInput e DualSense", en = "Native gamepad service supporting XInput and DualSense" }
+
+  [[hardware.grupo.componente]]
+  corto = "MC"
+  nombre = { pt = "Memory Card nativo", en = "Native Memory Card" }
+  estado = "parcial"
+  peso = 2
+  nota = { pt = "Arquivos de save salvos diretamente no sistema de arquivos do PC", en = "Save files stored directly on host filesystem" }

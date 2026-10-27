@@ -59,6 +59,10 @@ flowchart LR
 
 ## Status atual
 
+<a href="docs/estado/detalhes.pt-BR.md"><img src="docs/estado/mapa.pt-BR.svg" alt="Mapa de status do port: funções das bibliotecas do SDK da Sony e componentes de hardware do PS2, coloridos por status" width="100%"></a>
+
+Detalhamento por biblioteca e componente: [`docs/estado/detalhes.pt-BR.md`](docs/estado/detalhes.pt-BR.md). Regenerado a partir de `docs/estado/dados.toml` por `tools/estado/gerar.py` (e automaticamente em cada push para `main`).
+
 Consulte [docs/ESTADO.md](docs/ESTADO.md) para o registro detalhado de pesquisa.
 
 | Marco | Status |

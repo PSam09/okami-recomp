@@ -1,10 +1,10 @@
-# Monitora en tiempo real los registros de ejecucion
+# Monitora em tempo real os registros de execucao
 $RepoRoot = Split-Path -Parent $PSScriptRoot
-$log = Join-Path $RepoRoot 'logs\ejecutar.log'
-$err = Join-Path $RepoRoot 'logs\ejecutar_err.log'
+$log = Join-Path $RepoRoot 'logs\executar.log'
+$err = Join-Path $RepoRoot 'logs\executar_err.log'
 
-Write-Host "Monitor de logs (Ctrl+C para salir)"
-Write-Host "Esperando escritura en logs..."
+Write-Host "Monitor de logs (Ctrl+C para encerrar)"
+Write-Host "Aguardando escrita nos logs..."
 
 if (-not (Test-Path $log)) { "" | Out-File $log }
 if (-not (Test-Path $err)) { "" | Out-File $err }

@@ -1,14 +1,14 @@
 #!/usr/bin/env python3
 """
-Scanner y generador de mapa de funciones (funcmap.csv) y plantilla de recompilador
-(recomp.template.toml) especifico para Okami (PS2, SLUS_211.15).
+Scanner e gerador de mapa de funções (funcmap.csv) e modelo de recompilador
+(recomp.template.toml) específico para Okami (PS2, SLUS_211.15).
 
-Analiza el binario MIPS R5900 de Okami:
-1. Localiza la seccion .text y punto de entrada.
-2. Identifica puntos de entrada mediante JAL, BAL, prologos de pila (addiu/daddiu $sp),
-   retornos (jr $ra), y tablas de syscalls de SCE.
-3. Asocia stubs de funciones estandar del kernel/SDK de PS2.
-4. Genera funcmap.csv ordenado y sin solapes, y config/recomp.template.toml valido.
+Analisa o binário MIPS R5900 de Okami:
+1. Localiza a seção .text e ponto de entrada.
+2. Identifica pontos de entrada através de JAL, BAL, prólogos de pilha (addiu/daddiu $sp),
+   retornos (jr $ra) e tabelas de syscalls da Sony/SCE.
+3. Associa stubs de funções padrão do kernel/SDK do PS2.
+4. Gera funcmap.csv ordenado e sem sobreposições, e config/recomp.template.toml válido.
 """
 
 import os
@@ -18,7 +18,7 @@ import re
 import argparse
 from pathlib import Path
 
-# Mapa de syscalls estandar de EE Kernel de PS2 (num -> nombre)
+# Mapa de syscalls padrao do Kernel EE do PS2 (num -> nome)
 SCE_SYSCALL_NAMES = {
     0x01: "ResetEE",
     0x02: "SetGsCrt",
@@ -79,18 +79,18 @@ def analyze_elf(elf_path: Path):
     with open(elf_path, "rb") as f:
         ident = f.read(16)
         if ident[:4] != b"\x7fELF":
-            raise ValueError(f"{elf_path} no es un ELF valido.")
+            raise ValueError(f"{elf_path} não é um ELF válido.")
         
         type_, machine, version, entry, phoff, shoff, flags, ehsize, phentsize, phnum, shentsize, shnum, shstrndx = struct.unpack('<HHIIIIIHHHHHH', f.read(36))
         
-        # Tabla de nombres de secciones
+        # Tabela de nomes de seções
         f.seek(shoff + shstrndx * shentsize)
         shstr_hdr = f.read(shentsize)
         shstr_offset, shstr_size = struct.unpack('<II', shstr_hdr[16:24])
         f.seek(shstr_offset)
         shstrtab = f.read(shstr_size)
         
-        # Buscar .text
+        # Localizar .text
         text_addr = None
         text_offset = None
         text_size = None
@@ -106,7 +106,7 @@ def analyze_elf(elf_path: Path):
                 break
         
         if not text_addr:
-            raise ValueError("No se encontro la seccion .text en el ELF.")
+            raise ValueError("Não foi encontrada a seção .text no ELF.")
             
         f.seek(text_offset)
         code = f.read(text_size)
@@ -117,9 +117,9 @@ def scan_functions(entry, text_addr, text_size, code):
     starts = set()
     starts.add(entry)
     
-    # 1. Escanear instrucciones JAL y BAL
-    # 2. Escanear prologos tipicos: addiu $sp, $sp, -imm o daddiu $sp, $sp, -imm
-    # 3. Detectar epilogos: jr $ra
+    # 1. Escanear instruções JAL e BAL
+    # 2. Escanear prólogos típicos: addiu $sp, $sp, -imm ou daddiu $sp, $sp, -imm
+    # 3. Detectar retornos: jr $ra
     for i in range(0, text_size, 4):
         curr_addr = text_addr + i
         w = struct.unpack('<I', code[i:i+4])[0]
@@ -134,7 +134,7 @@ def scan_functions(entry, text_addr, text_size, code):
         # BGEZAL / BLTZAL
         elif op == 1:
             rt = (w >> 16) & 0x1F
-            if rt in (0x10, 0x11): # BLTZAL, BGEZAL
+            if rt in (0x10, 0x11):
                 imm = w & 0xFFFF
                 if imm & 0x8000:
                     imm -= 0x10000
@@ -142,22 +142,20 @@ def scan_functions(entry, text_addr, text_size, code):
                 if text_addr <= target < text_addr + text_size:
                     starts.add(target)
                     
-        # Prologo de funcion: addiu $sp, $sp, -imm (0x27BDxxxx) o daddiu $sp, $sp, -imm (0x67BDxxxx)
+        # Prólogo de função: addiu $sp, $sp, -imm (0x27BDxxxx) ou daddiu $sp, $sp, -imm (0x67BDxxxx)
         elif (w & 0xFFFF0000) in (0x27BD0000, 0x67BD0000):
             imm = w & 0xFFFF
-            if imm & 0x8000: # offset negativo de asignacion de pila
+            if imm & 0x8000:
                 starts.add(curr_addr)
                 
     sorted_starts = sorted(list(starts))
     
-    # Identificar syscalls en la tabla SCE (alrededor de 0x003FE380)
+    # Identificar syscalls na tabela do kernel SCE
     syscall_names_map = {}
     for i in range(0, text_size - 8, 4):
         curr_addr = text_addr + i
         w = struct.unpack('<I', code[i:i+4])[0]
-        # SYSCALL instruction
         if (w & 0xFC00003F) == 0x0000000C:
-            # Buscar instruccion anterior (addiu $v1, $zero, num) -> 0x2403xxxx
             if i >= 4:
                 prev_w = struct.unpack('<I', code[i-4:i])[0]
                 if (prev_w & 0xFFFF0000) == 0x24030000:
@@ -172,7 +170,7 @@ def scan_functions(entry, text_addr, text_size, code):
     seen_names = {}
     functions = []
     
-    # Construir rangos continuos sin solapes
+    # Construir intervalos contínuos sem sobreposição
     for idx, start in enumerate(sorted_starts):
         if idx + 1 < len(sorted_starts):
             end = sorted_starts[idx + 1]
@@ -194,7 +192,6 @@ def scan_functions(entry, text_addr, text_size, code):
     return functions
 
 def generate_recomp_toml(functions, output_path: Path):
-    # Seleccionar stubs conocidos con handlers en el runtime nativo
     stubs = []
     runtime_handled_stubs = {
         "ResetEE", "Exit", "CreateThread", "StartThread", "ExitThread", "SleepThread",
@@ -209,38 +206,38 @@ def generate_recomp_toml(functions, output_path: Path):
         if name in runtime_handled_stubs:
             stubs.append(f'  "{name}@0x{start:08X}",')
             
-    toml_content = f"""# PS2Recomp configuration for Okami (SLUS_211.15)
-# Generado por tools/elf_functions.py
+    toml_content = f"""# Configuração do PS2Recomp para Okami (SLUS_211.15)
+# Gerado automaticamente por tools/elf_functions.py
 
 [general]
-# Path to input ELF file
+# Caminho para o executavel ELF
 input = "@ELF@"
 
-# Path to function map CSV
+# Caminho para o mapeamento CSV de funcoes
 ghidra_output = "@MAP@"
 
-# Path to output directory
+# Diretorio de saida do codigo C++
 output = "@OUT@"
 
-# Single file output mode
+# Modo de saida em arquivo unico
 single_file_output = false
 
-# Patch policy
+# Politica de substituicao
 patch_syscalls = false
 patch_cop0 = true
 patch_cache = true
 
-# Funciones stubbed con handler nativo en el runtime
+# Funcoes com stub para chamadas de runtime nativo
 stubs = [
 {chr(10).join(stubs)}
 ]
 
-# Entry points adicionales si aplica
+# Pontos de entrada
 entry_points = [
   "entry@0x00100008",
 ]
 
-# Parches a instrucciones problematicas detectadas en el ELF
+# Patches para instrucoes problematicas detectadas no ELF
 instruction_patches = [
 ]
 """
@@ -248,23 +245,23 @@ instruction_patches = [
         f.write(toml_content)
 
 def main():
-    parser = argparse.ArgumentParser(description="Escanea funciones de Okami SLUS_211.15 y genera config")
-    parser.add_argument("--elf", default="game/SLUS_211.15", help="Ruta al ejecutable SLUS_211.15")
-    parser.add_argument("--map", default="config/funcmap.csv", help="Ruta de salida funcmap.csv")
-    parser.add_argument("--toml", default="config/recomp.template.toml", help="Ruta de salida plantilla toml")
+    parser = argparse.ArgumentParser(description="Analisa funções do Okami SLUS_211.15 e gera arquivos de configuração")
+    parser.add_argument("--elf", default="game/SLUS_211.15", help="Caminho para o executável SLUS_211.15")
+    parser.add_argument("--map", default="config/funcmap.csv", help="Caminho de saída para funcmap.csv")
+    parser.add_argument("--toml", default="config/recomp.template.toml", help="Caminho de saída para recomp.template.toml")
     args = parser.parse_args()
     
     elf_p = Path(args.elf)
     if not elf_p.exists():
-        print(f"Error: no existe {elf_p}")
+        print(f"Erro: não foi encontrado {elf_p}")
         return 1
         
-    print(f"Analizando {elf_p}...")
+    print(f"Analisando {elf_p}...")
     entry, text_addr, text_size, code = analyze_elf(elf_p)
     print(f"Entry: 0x{entry:08X}, .text: 0x{text_addr:08X} - 0x{text_addr+text_size:08X} ({text_size} bytes)")
     
     functions = scan_functions(entry, text_addr, text_size, code)
-    print(f"Total de funciones detectadas: {len(functions)}")
+    print(f"Total de funções identificadas: {len(functions)}")
     
     map_p = Path(args.map)
     map_p.parent.mkdir(parents=True, exist_ok=True)
@@ -273,12 +270,12 @@ def main():
         writer.writerow(["Name", "Start", "End", "Size"])
         for name, start, end, size in functions:
             writer.writerow([name, f"0x{start:08X}", f"0x{end:08X}", size])
-    print(f"Mapa escrito en: {map_p}")
+    print(f"Mapa gerado em: {map_p}")
     
     toml_p = Path(args.toml)
     toml_p.parent.mkdir(parents=True, exist_ok=True)
     generate_recomp_toml(functions, toml_p)
-    print(f"Plantilla TOML escrita en: {toml_p}")
+    print(f"Modelo TOML gerado em: {toml_p}")
     return 0
 
 if __name__ == "__main__":

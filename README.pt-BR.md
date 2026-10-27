@@ -66,7 +66,7 @@ Consulte [docs/ESTADO.md](docs/ESTADO.md) para o registro detalhado de pesquisa.
 | Extração do disco com mapeamento de setores (`.disc_layout`) | ✅ Concluído |
 | Mapeamento de funções do ELF MIPS R5900 (`config/funcmap.csv`) | ✅ Concluído (12.806 funções) |
 | Configuração do recompilador (`recomp.template.toml`) | ✅ Concluído (0 erros, 0 avisos) |
-| Pilha de parches do runtime nativo | ✅ Concluído (40 patches) |
+| Pilha de patches do runtime nativo | ✅ Concluído (40 patches) |
 | Ferramenta de análise automatizada de padrões de erro | ✅ Concluído (`tools/analisar_erros.py`) |
 | Compilação nativa (`scripts/2_compilar.cmd`) | 🔧 Em progresso |
 | Renderização gráfica GS OpenGL & apresentação em janela | ⏳ Pendente |
@@ -84,7 +84,7 @@ Consulte [docs/ESTADO.md](docs/ESTADO.md) para o registro detalhado de pesquisa.
 - [Python 3.10+](https://www.python.org/)
 - Sua própria cópia de **Okami** (PS2, NTSC-U `SLUS-21115`)
 
-`scripts\1_instalar_herramientas.cmd` instala o Git e o compilador C++ via winget caso necessário.
+`scripts\1_instalar_ferramentas.cmd` instala o Git e o compilador C++ via winget caso necessário.
 
 ---
 
@@ -100,12 +100,12 @@ python tools\iso_extract.py "D:\Okami (USA).iso" game --layout
 ```cmd
 scripts\2_compilar.cmd
 ```
-O script clona o PS2Recomp em `C:\okamiport`, aplica os parches nativos, traduz `SLUS_211.15` para C++ e compila `ps2EntryRunner.exe` com MSVC e Ninja. O log é gerado em `logs\2_compilar.log`.
+O script clona o PS2Recomp em `C:\okamiport`, aplica os patches nativos, traduz `SLUS_211.15` para C++ e compila `ps2EntryRunner.exe` com MSVC e Ninja. O log é gerado em `logs\2_compilar.log`.
 
 ### 3. Executar
 ```cmd
-scripts\3_ejecutar.cmd          :: Executa por 60 segundos com registro de logs
-scripts\3_ejecutar_manual.cmd   :: Executa sem limite de tempo
+scripts\3_executar.cmd          :: Executa por 60 segundos com registro de logs
+scripts\3_executar_manual.cmd   :: Executa sem limite de tempo
 ```
 
 - **F2**: Alterna contador de FPS na tela.

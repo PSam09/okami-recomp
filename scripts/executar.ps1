@@ -1,7 +1,7 @@
-# Ejecuta el port nativo de Okami y guarda registros en logs\
+# Executa o port nativo de Okami e grava registros em logs\
 param(
     [int]$Segundos = 0,
-    [switch]$Ventana,
+    [switch]$Janela,
     [switch]$Fps
 )
 $ErrorActionPreference = 'Stop'
@@ -11,35 +11,35 @@ $work = Get-OkamiWorkDir
 $exe  = Join-Path $work 'PS2Recomp\out\build\ps2xRuntime\ps2EntryRunner.exe'
 
 if (-not (Test-Path -LiteralPath $exe)) {
-    throw "No se encontro el ejecutable ($exe). Corre antes scripts\2_compilar.cmd"
+    throw "Executavel nao encontrado ($exe). Execute primeiro scripts\2_compilar.cmd"
 }
 
-# Auto-extraccion del disco si game\SLUS_211.15 no existe todavia
+# Auto-extracao do disco se game\SLUS_211.15 ainda nao existir
 $elf = $null
 try { $elf = Get-OkamiElf } catch {}
 if (-not $elf) {
     $iso = Get-OkamiIso
     if ($iso) {
-        Write-Host "Extrayendo disco con mapeo de sectores desde: $iso"
+        Write-Host "Extraindo disco com mapeamento de setores a partir de: $iso"
         $gameDir = Join-Path $RepoRoot 'game'
         New-Item -ItemType Directory -Force -Path $gameDir | Out-Null
         python (Join-Path $RepoRoot 'tools\iso_extract.py') $iso $gameDir --layout
         $elf = Get-OkamiElf
     } else {
-        throw "No se encontro el juego ni la ISO para extraer."
+        throw "Nenhum arquivo de jogo ou imagem ISO foi encontrada para extracao."
     }
 }
 
 $env:PS2X_DISC_PATH = Split-Path -Parent $elf
-if ($Ventana) { $env:OKAMI_PANTALLA_COMPLETA = '0' }
-if ($Fps)     { $env:OKAMI_FPS = '1' }
+if ($Janela) { $env:OKAMI_PANTALLA_COMPLETA = '0' }
+if ($Fps)    { $env:OKAMI_FPS = '1' }
 
-Write-Host "Ejecutando Okami Native Port..."
+Write-Host "Iniciando Okami Native Port..."
 Write-Host "Binario: $exe"
-Write-Host "Datos:   $env:PS2X_DISC_PATH"
+Write-Host "Dados:   $env:PS2X_DISC_PATH"
 
-$outLog = Join-Path $LogsDir 'ejecutar.log'
-$errLog = Join-Path $LogsDir 'ejecutar_err.log'
+$outLog = Join-Path $LogsDir 'executar.log'
+$errLog = Join-Path $LogsDir 'executar_err.log'
 
 $psi = New-Object System.Diagnostics.ProcessStartInfo
 $psi.FileName = $exe
@@ -75,9 +75,9 @@ $stderrTask = [System.Threading.Tasks.Task]::Run([System.Action]{
 })
 
 if ($Segundos -gt 0) {
-    Write-Host "Ejecutando por $Segundos segundos..."
+    Write-Host "Executando por $Segundos segundos..."
     if (-not $proc.WaitForExit($Segundos * 1000)) {
-        Write-Host "Tiempo cumplido. Cerrando proceso."
+        Write-Host "Tempo limite atingido. Encerrando processo."
         $proc.Kill()
     }
 } else {
@@ -85,4 +85,4 @@ if ($Segundos -gt 0) {
 }
 
 [System.Threading.Tasks.Task]::WaitAll(@($stdoutTask, $stderrTask))
-Write-Host "Proceso terminado con codigo $($proc.ExitCode). Logs en $LogsDir"
+Write-Host "Processo finalizado com codigo $($proc.ExitCode). Logs salvos em $LogsDir"

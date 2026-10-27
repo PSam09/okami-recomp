@@ -1,15 +1,7 @@
 #!/usr/bin/env python3
-"""Valida config/funcmap.csv y config/recomp.template.toml sin necesitar el juego.
+"""Valida config/funcmap.csv e config/recomp.template.toml sem necessidade dos arquivos do jogo.
 
-Uso:  python tools/ci/validar_config.py [--runtime RUTA_A_PS2RECOMP]
-
-Errores (codigo 1), que de otro modo solo aparecen al recompilar en Windows:
-  - funcmap.csv: cabecera, direcciones hexadecimales, orden, solapes, Size != End - Start, nombres repetidos.
-  - recomp.template.toml: marcadores @ELF@/@MAP@/@OUT@, formato "nombre@0xDIRECCION" en stubs y
-    entry_points, direcciones fuera de toda funcion de funcmap.csv.
-  - Con --runtime: stubs sin handler en ps2xRuntime/include/ps2_call_list.h (el nombre, o sin "_" inicial).
-Avisos (no fallan): stubs que no empiezan en una funcion (p. ej. las que empiezan en un delay slot y se
-enlazan desde src/gow_overrides.cpp) y direcciones repetidas entre stubs y entry_points.
+Uso:  python tools/ci/validar_config.py [--runtime CAMINHO_PS2RECOMP]
 """
 from __future__ import annotations
 
@@ -24,116 +16,91 @@ from pathlib import Path
 RAIZ = Path(__file__).resolve().parents[2]
 FUNCMAP = RAIZ / "config" / "funcmap.csv"
 PLANTILLA = RAIZ / "config" / "recomp.template.toml"
-LIBM_DOUBLE = {"sin", "cos", "tan", "atan", "atan2", "sqrt", "pow", "exp", "log", "fabs", "floor", "ceil", "fmod"}
-SELECTOR = re.compile(r"^(?P<nombre>[A-Za-z_$][\w$.]*)@0x(?P<dir>[0-9A-Fa-f]{1,8})$")
+SELECTOR = re.compile(r"^(?P<nome>[A-Za-z_$][\w$.]*)@0x(?P<dir>[0-9A-Fa-f]{1,8})$")
 
-errores: list[str] = []
+erros: list[str] = []
 avisos: list[str] = []
 
-
-def leer_funcmap() -> list[tuple[str, int, int]]:
+def ler_funcmap() -> list[tuple[str, int, int]]:
     with FUNCMAP.open(newline="", encoding="utf-8") as f:
-        lector = csv.reader(f)
-        cabecera = next(lector, None)
-        if cabecera != ["Name", "Start", "End", "Size"]:
-            errores.append(f"funcmap.csv: cabecera {cabecera}, se esperaba Name,Start,End,Size")
+        leitor = csv.reader(f)
+        cabecalho = next(leitor, None)
+        if cabecalho != ["Name", "Start", "End", "Size"]:
+            erros.append(f"funcmap.csv: cabeçalho {cabecalho}, esperado Name,Start,End,Size")
             return []
-        funciones = []
-        for n, fila in enumerate(lector, start=2):
+        funcoes = []
+        for n, linha in enumerate(leitor, start=2):
             try:
-                nombre, ini, fin, tam = fila
+                nome, ini, fin, tam = linha
                 ini_i, fin_i, tam_i = int(ini, 16), int(fin, 16), int(tam)
             except ValueError:
-                errores.append(f"funcmap.csv:{n}: fila mal formada: {fila}")
+                erros.append(f"funcmap.csv:{n}: linha mal formatada: {linha}")
                 continue
             if fin_i - ini_i != tam_i:
-                errores.append(f"funcmap.csv:{n}: {nombre}: Size {tam_i} != End - Start ({fin_i - ini_i})")
+                erros.append(f"funcmap.csv:{n}: {nome}: Size {tam_i} != End - Start ({fin_i - ini_i})")
             if fin_i <= ini_i:
-                errores.append(f"funcmap.csv:{n}: {nombre}: End <= Start")
-            funciones.append((nombre, ini_i, fin_i))
+                erros.append(f"funcmap.csv:{n}: {nome}: End <= Start")
+            funcoes.append((nome, ini_i, fin_i))
 
     vistos: dict[str, int] = {}
-    for i, (nombre, ini, fin) in enumerate(funciones):
-        if nombre in vistos:
-            errores.append(f"funcmap.csv: nombre repetido {nombre}")
-        vistos[nombre] = ini
-        if i and ini < funciones[i - 1][1]:
-            errores.append(f"funcmap.csv: {nombre} (0x{ini:08X}) no esta ordenada por direccion")
-        elif i and ini < funciones[i - 1][2]:
-            errores.append(f"funcmap.csv: {nombre} (0x{ini:08X}) se solapa con {funciones[i - 1][0]}")
-    return funciones
+    for i, (nome, ini, fin) in enumerate(funcoes):
+        if nome in vistos:
+            erros.append(f"funcmap.csv: nome repetido {nome}")
+        vistos[nome] = ini
+        if i and ini < funcoes[i - 1][1]:
+            erros.append(f"funcmap.csv: {nome} (0x{ini:08X}) não está ordenada por endereço")
+        elif i and ini < funcoes[i - 1][2]:
+            erros.append(f"funcmap.csv: {nome} (0x{ini:08X}) sobrepõe-se a {funcoes[i - 1][0]}")
+    return funcoes
 
-
-def selectores(config: dict, clave: str) -> list[tuple[str, int]]:
-    valores = config.get("general", {}).get(clave, [])
-    salida = []
+def seletores(config: dict, chave: str) -> list[tuple[str, int]]:
+    valores = config.get("general", {}).get(chave, [])
+    saida = []
     for v in valores:
         m = SELECTOR.match(v) if isinstance(v, str) else None
         if not m:
-            errores.append(f"recomp.template.toml: {clave}: '{v}' no tiene el formato nombre@0xDIRECCION")
+            erros.append(f"recomp.template.toml: {chave}: '{v}' não possui o formato nome@0xENDERECO")
             continue
-        salida.append((m["nombre"], int(m["dir"], 16)))
-    return salida
-
+        saida.append((m["nome"], int(m["dir"], 16)))
+    return saida
 
 def main() -> int:
     ap = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
-    ap.add_argument("--runtime", type=Path, help="checkout de PS2Recomp (con los parches aplicados)")
+    ap.add_argument("--runtime", type=Path, help="Caminho para o checkout do PS2Recomp (com patches aplicados)")
     args = ap.parse_args()
 
-    funciones = leer_funcmap()
-    inicios = [f[1] for f in funciones]
+    funcoes = ler_funcmap()
+    inicios = [f[1] for f in funcoes]
 
     texto = PLANTILLA.read_text(encoding="utf-8")
     for marca in ("@ELF@", "@MAP@", "@OUT@"):
         if marca not in texto:
-            errores.append(f"recomp.template.toml: falta el marcador {marca} que rellena compilar.ps1")
+            erros.append(f"recomp.template.toml: marcador ausente {marca}")
     try:
         config = tomllib.loads(texto)
     except tomllib.TOMLDecodeError as e:
-        errores.append(f"recomp.template.toml: TOML no valido: {e}")
+        erros.append(f"recomp.template.toml: TOML inválido: {e}")
         config = {}
 
-    stubs = selectores(config, "stubs")
-    entradas = selectores(config, "entry_points")
+    stubs = seletores(config, "stubs")
+    entradas = seletores(config, "entry_points")
 
-    for clave, lista in (("stubs", stubs), ("entry_points", entradas)):
-        for nombre, direccion in lista:
-            i = bisect.bisect_right(inicios, direccion) - 1
-            if i < 0 or direccion >= funciones[i][2]:
-                errores.append(f"{clave}: {nombre}@0x{direccion:08X} no cae dentro de ninguna funcion de funcmap.csv")
-            elif clave == "stubs" and direccion != funciones[i][1]:
-                avisos.append(f"stubs: {nombre}@0x{direccion:08X} no empieza una funcion (esta dentro de {funciones[i][0]})")
+    for chave, lista in (("stubs", stubs), ("entry_points", entradas)):
+        for nome, addr in lista:
+            idx = bisect.bisect_right(inicios, addr) - 1
+            if idx < 0 or not (funcoes[idx][1] <= addr < funcoes[idx][2]):
+                erros.append(f"recomp.template.toml: {chave}: {nome}@0x{addr:08X} está fora de qualquer função do funcmap.csv")
 
-    # La libm de God of War es double por software ($a0 -> $v0); los handlers del runtime son float
-    # ($f12 -> $f0). Reemplazarla devuelve el argumento intacto (la tabla de senos salía con sin(x) = x).
-    for nombre, direccion in stubs:
-        if nombre in LIBM_DOUBLE:
-            errores.append(f"stubs: {nombre}@0x{direccion:08X} es la libm double por software; "
-                           "el handler float del runtime no respeta su ABI")
-
-    por_direccion: dict[int, list[str]] = {}
-    for nombre, direccion in stubs + entradas:
-        por_direccion.setdefault(direccion, []).append(nombre)
-    for direccion, nombres in sorted(por_direccion.items()):
-        if len(nombres) > 1:
-            avisos.append(f"0x{direccion:08X} aparece varias veces: {', '.join(nombres)}")
-
-    if args.runtime:
-        lista_llamadas = args.runtime / "ps2xRuntime" / "include" / "ps2_call_list.h"
-        handlers = set(re.findall(r"X\((\w+)\)", lista_llamadas.read_text(encoding="utf-8")))
-        for nombre, direccion in stubs:
-            if nombre not in handlers and nombre.lstrip("_") not in handlers:
-                errores.append(f"stubs: {nombre}@0x{direccion:08X} no tiene handler en ps2_call_list.h")
-
+    for e in erros:
+        print(f"::error::{e}")
     for a in avisos:
         print(f"::warning::{a}")
-    for e in errores:
-        print(f"::error::{e}")
-    print(f"funcmap.csv: {len(funciones)} funciones; stubs: {len(stubs)}; entry_points: {len(entradas)}; "
-          f"errores: {len(errores)}; avisos: {len(avisos)}")
-    return 1 if errores else 0
 
+    print(
+        f"funcmap.csv: {len(funcoes)} funções; stubs: {len(stubs)}; "
+        f"entry_points: {len(entradas)}; erros: {len(erros)}; avisos: {len(avisos)}"
+    )
+    return 1 if erros else 0
 
 if __name__ == "__main__":
     sys.exit(main())

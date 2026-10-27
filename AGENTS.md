@@ -1,44 +1,45 @@
-# Guia para Agentes y Colaboradores — Okami Recomp
+# Guia para Agentes e Colaboradores — Okami Recomp
 
-Port nativo de *Okami* (PS2, `SLUS-21115`) por recompilacion estatica con [PS2Recomp](https://github.com/ran-j/PS2Recomp).
-Este repositorio no contiene ningun archivo protegido por derechos de autor del juego ni el codigo C++ generado: solo lo especifico de Okami.
+Port nativo de *Okami* (PS2, `SLUS-21115`) por recompilação estática com [PS2Recomp](https://github.com/ran-j/PS2Recomp).
+Este repositório não contém nenhum arquivo protegido por direitos autorais do jogo nem o código C++ gerado: apenas o código e configurações específicos de Okami.
 
-## Ubicacion de Componentes
+## Localização dos Componentes
 
-| Tarea / Cambio | Ubicacion |
+| Tarefa / Alteração | Localização |
 |---|---|
-| Reemplazos de funciones y diagnosticos del juego | `src/okami_overrides.cpp` |
-| Headers y estructuras de datos | `src/*.h` |
-| Parches al runtime nativo de PS2Recomp | `patches/` (uno por tema) |
-| Mapeo de funciones y stubs del recompilador | `config/funcmap.csv`, `config/recomp.template.toml` |
-| Scripts del pipeline de construccion en Windows | `scripts/` (`compilar.ps1`, `ejecutar.ps1`, `.cmd`) |
-| Herramientas de automatizacion y extraccion | `tools/` |
-| Analisis automatizado de patrones de errores | `tools/analisar_erros.py` |
-| Correccion en lote automatica (batch auto-fix) | `tools/auto_fix.py` |
-| Registro de estado y hallazgos | `docs/ESTADO.md` |
+| Substituições de funções e diagnósticos do jogo | `src/okami_overrides.cpp` |
+| Headers e estruturas de dados auxiliares | `src/*.h` |
+| Patches do runtime nativo do PS2Recomp | `patches/` (um por tema) |
+| Mapeamento de funções e stubs do recompilador | `config/funcmap.csv`, `config/recomp.template.toml` |
+| Scripts de automação do pipeline de build no Windows | `scripts/` (`compilar.ps1`, `executar.ps1`, `.cmd`) |
+| Ferramentas de automação e extração de mídia | `tools/` |
+| Análise automatizada de padrões de erro | `tools/analisar_erros.py` |
+| Correção automatizada em lote (batch auto-fix) | `tools/auto_fix.py` |
+| Registro de estado, pesquisas e descobertas | `docs/ESTADO.md` |
 
-## Regla de Oro: Automatizacion de Errores por Patrones
+## Regra de Ouro: Automação de Erros por Padrões
 
-> **Importante**: Durante el proceso de recompilacion y ejecucion inicial surgiran numerosos errores.
-> En lugar de arreglar cada error individualmente a mano:
-> 1. Ejecuta siempre `python tools/analisar_erros.py <log>` para identificar las clases y patrones recurrentes.
-> 2. Disena o amplía `tools/auto_fix.py` o scripts dedicados para solucionar categorias enteras de errores de una sola pasada.
-> 3. Documenta el patron encontrado y su solucion en `docs/ESTADO.md`.
+> **Importante**: Durante o processo de recompilação e execução inicial surgirão múltiplos erros.
+> Em vez de corrigir cada erro individualmente à mão:
+> 1. Execute sempre `python tools/analisar_erros.py <log>` para identificar classes e padrões recorrentes.
+> 2. Projete ou expanda `tools/auto_fix.py` ou scripts dedicados para solucionar categorias inteiras de erros de uma só vez.
+> 3. Documente o padrão encontrado e sua solução em `docs/ESTADO.md`.
 
-## Parches de PS2Recomp
+## Patches do PS2Recomp
 
-- Los parches se aplican sobre el commit fijado en `scripts/common.ps1` (`$PS2RecompCommit`) en el orden especificado en `scripts/compilar.ps1` con `git apply --ignore-whitespace`.
-- Para anadir un parche nuevo, anadelo a `patches/` y registralo en `scripts/compilar.ps1`.
-- Marca los cambios con un comentario identificativo `// Okami-Port:`.
+- Os patches são aplicados sobre o commit fixado em `scripts/common.ps1` (`$PS2RecompCommit`) na ordem especificada em `scripts/compilar.ps1` com `git apply --ignore-whitespace`.
+- Para adicionar um novo patch, adicione o arquivo em `patches/` e registre-o em `scripts/compilar.ps1`.
+- Marque alterações manuais no runtime com o comentário identificador `// Okami-Port:`.
 
-## Validaciones
+## Validações
 
-Antes de subir cambios, valida la configuracion del proyecto:
+Antes de enviar alterações para o repositório remoto, valide a integridade da configuração:
 ```sh
 python tools/ci/validar_config.py
+python tools/ci/patches.py
 ```
-Asegurate de que reporte `0 errores; 0 avisos`.
+Certifique-se de que reporte `0 erros; 0 avisos`.
 
-## Legalidad
+## Legalidade
 
-Nunca agregues ni hagas commit de archivos del juego (`SLUS_211.15`, `.AFS`, `.FST`, `.DIR`, `.IRX`, `.iso`), volcados de memoria o capturas de RAM/VRAM. `game/` y `logs/` estan estrictamente en `.gitignore`.
+Nunca adicione nem faça commit de arquivos proprietários do jogo (`SLUS_211.15`, `.AFS`, `.FST`, `.DIR`, `.IRX`, `.iso`), dumps de memória ou capturas de RAM/VRAM. Os diretórios `game/` e `logs/` estão estritamente incluídos no `.gitignore`.

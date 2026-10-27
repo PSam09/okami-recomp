@@ -1,24 +1,24 @@
-# Estado del Proyecto — Okami Recomp
+# Estado do Projeto — Okami Recomp
 
 Port nativo para PC de *Okami* (PS2, `SLUS-21115`).
 
-## Hitos
+## Marcos do Projeto
 
-| Hito | Estado | Notas |
+| Marco | Estado | Notas |
 |---|---|---|
-| Extraccion de disco con mapeo de sectores (`.disc_layout`, `.disc_meta`) | ✅ Completado | 8 archivos y 53 sectores de metadatos extraidos |
-| Escaneo y analisis de funciones ELF (`tools/elf_functions.py`) | ✅ Completado | 12.806 funciones mapeadas en `config/funcmap.csv` |
-| Configuracion y validacion de stubs (`recomp.template.toml`) | ✅ Completado | Validado en verde con 0 errores y 0 avisos |
-| Pila de parches del runtime nativo (Waffle565 + mejoras de latencia/GS) | ✅ Listo | 40 parches integrados en `patches/` |
-| Herramientas de automatizacion de errores (`tools/analisar_erros.py`, `tools/auto_fix.py`) | ✅ Operativo | Deteccion automatica de patrones de compilador y runtime |
-| Compilacion inicial de C++ generado con MSVC | 🔧 En progreso | Preparado para primera ejecucion con `scripts/2_compilar.cmd` |
-| Arranque de pantalla y presentacion GS OpenGL | ⏳ Pendiente | Por verificar tras compilar `ps2EntryRunner.exe` |
-| Sistema de sonido y streaming CRI ADX nativo | ⏳ Pendiente | Identificado en `MODULES/IRX.IMS` |
-| Entrada de mando nativo (gamepad / teclado) | ⏳ Pendiente | Mapeo mediante backend SDL2 del host |
-| Partida jugable completa | ⏳ Pendiente | Objetivos futuros |
+| Extração de disco com mapeamento de setores (`.disc_layout`, `.disc_meta`) | ✅ Concluído | 8 arquivos e 53 setores de metadados extraídos |
+| Varredura e mapeamento de funções ELF (`tools/elf_functions.py`) | ✅ Concluído | 12.806 funções mapeadas em `config/funcmap.csv` |
+| Configuração e validação de stubs (`recomp.template.toml`) | ✅ Concluído | Validado com 0 erros e 0 avisos |
+| Pilha de patches de runtime nativo (Waffle565 + melhorias de GS/latência) | ✅ Concluído | 40 patches organizados em `patches/` |
+| Ferramentas de automação de erros (`tools/analisar_erros.py`, `tools/auto_fix.py`) | ✅ Concluído | Detecção automática de padrões de compilador e runtime |
+| Compilação inicial de C++ gerado com MSVC | 🔧 Em progresso | Pronto para execução com `scripts/2_compilar.cmd` |
+| Inicialização de tela e apresentação GS OpenGL | ⏳ Pendente | A ser verificado após compilar `ps2EntryRunner.exe` |
+| Sistema de som e streaming CRI ADX nativo | ⏳ Pendente | Identificado em `MODULES/IRX.IMS` |
+| Entrada de controles nativa (gamepad / teclado) | ⏳ Pendente | Mapeamento através do backend SDL2 do host |
+| Campanha completa jogável | ⏳ Futuro | Objetivos futuros |
 
-## Registro de Investigacion
+## Registro de Pesquisa
 
-- **Extraccion del disco**: La imagen `Okami (USA).iso` (3.9 GB) contiene dos contenedores principales (`_DATA0.AFS` de ~2.14 GB y `_DATA1.AFS` de ~1.79 GB), la tabla de sectores `0FLISTDV.DIR`, la lista de archivos `WOLVES_U.FST` y los modulos `MODULES/IOPRP300.IMG` e `IRX.IMS`.
-- **Modulos IRX**: `IRX.IMS` contiene `sio2man.irx`, `padman.irx`, `mcman.irx`, `mcserv.irx`, `libsd.irx`, `SDRDRV.IRX`, `sdhd.irx`, `snddrv.irx`, y `cri_adxi.irx`.
-- **Estructura DVP (Vector Unit)**: El ELF contiene secciones `.DVP.ovlytab` y `.DVP.ovlystrtab`, lo que indica el uso de microprogramas VU0/VU1 dinamicamente intercambiables mediante overlays DVP.
+- **Extração do disco**: A imagem `Okami (USA).iso` (3.9 GB) contém dois arquivos principais de dados (`_DATA0.AFS` com ~2.14 GB e `_DATA1.AFS` com ~1.79 GB), a tabela de setores `0FLISTDV.DIR`, a lista de arquivos `WOLVES_U.FST` e os módulos `MODULES/IOPRP300.IMG` e `IRX.IMS`.
+- **Módulos IRX**: `IRX.IMS` contém `sio2man.irx`, `padman.irx`, `mcman.irx`, `mcserv.irx`, `libsd.irx`, `SDRDRV.IRX`, `sdhd.irx`, `snddrv.irx`, e `cri_adxi.irx`.
+- **Estrutura DVP (Vector Unit)**: O executável ELF possui seções `.DVP.ovlytab` e `.DVP.ovlystrtab`, indicando o uso de microprogramas VU0/VU1 dinamicamente intercambiáveis via overlays DVP oficiais da Sony.

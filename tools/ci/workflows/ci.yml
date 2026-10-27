@@ -1,4 +1,4 @@
-name: Pruebas de CI
+name: Testes de Integracao Continua (CI)
 
 on:
   push:
@@ -15,6 +15,7 @@ jobs:
         uses: actions/setup-python@v5
         with:
           python-version: '3.12'
-      - name: Validar configuracion (funcmap.csv y recomp.template.toml)
+      - name: Validar configuracao e ordenacao de patches
         run: |
           python3 tools/ci/validar_config.py
+          python3 tools/ci/patches.py

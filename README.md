@@ -80,25 +80,24 @@ See [docs/ESTADO.md](docs/ESTADO.md) for detailed notes and research log.
 
 ```
 .
-├── .github/workflows/         # CI validation
 ├── AGENTS.md                  # Guidelines for coding agents & contributors
 ├── config/
 │   ├── funcmap.csv            # Function map (Name, Start, End, Size)
 │   └── recomp.template.toml   # PS2Recomp configuration template
 ├── docs/                      # Technical documentation
-│   ├── ARQUITECTURA.md        # Architecture overview
+│   ├── ARQUITETURA.md         # Architecture overview
 │   ├── CONTROLES.md           # Controls and runtime shortcuts
+│   ├── DESEMPENHO.md          # Performance and optimization
 │   ├── ESTADO.md              # Research log and milestone progress
-│   ├── RENDERIZADO.md         # OpenGL graphics pipeline
-│   └── RENDIMIENTO.md         # Performance and optimization
+│   └── RENDERIZACAO.md        # OpenGL graphics pipeline
 ├── game/                      # YOUR extracted disc files (git-ignored)
 ├── patches/                   # Runtime patches for native PC subsystems
 ├── scripts/                   # Build and launch scripts for Windows
-│   ├── 1_instalar_herramientas.cmd
+│   ├── 1_instalar_ferramentas.cmd
 │   ├── 2_compilar.cmd         # Full compilation pipeline
 │   ├── 2_recompilar_rapido.cmd # Fast rebuild of overrides
-│   ├── 3_ejecutar.cmd         # Run game for 60 seconds with logs
-│   ├── 3_ejecutar_manual.cmd  # Run game indefinitely
+│   ├── 3_executar.cmd         # Run game for 60 seconds with logs
+│   ├── 3_executar_manual.cmd  # Run game indefinitely
 │   └── *.ps1                  # PowerShell script backends
 ├── src/                       # Game-specific overrides
 │   ├── okami_overrides.cpp
@@ -120,7 +119,7 @@ See [docs/ESTADO.md](docs/ESTADO.md) for detailed notes and research log.
 - [Python 3.10+](https://www.python.org/)
 - Your own legal copy of **Okami** (PS2, NTSC-U `SLUS-21115`)
 
-`scripts\1_instalar_herramientas.cmd` will install Git and Build Tools via winget if needed.
+`scripts\1_instalar_ferramentas.cmd` will install Git and Build Tools via winget if needed.
 
 ---
 
@@ -140,8 +139,8 @@ This script clones PS2Recomp into a short work path (`C:\okamiport`), applies th
 
 ### 3. Run
 ```cmd
-scripts\3_ejecutar.cmd          :: Runs with 60-second limit and logs
-scripts\3_ejecutar_manual.cmd   :: Runs with no time limit
+scripts\3_executar.cmd          :: Runs with 60-second limit and logs
+scripts\3_executar_manual.cmd   :: Runs with no time limit
 ```
 
 - **F2**: Toggle in-game FPS counter.
@@ -152,7 +151,7 @@ scripts\3_ejecutar_manual.cmd   :: Runs with no time limit
 
 ## Automated error fixing
 
-When compiling or running, compiler or runtime errors may arise due to game-specific nuances.
+When compiling or running, errors may arise due to game-specific nuances.
 Okami Recomp includes automated pattern recognition tools:
 ```cmd
 :: Scan compilation log and group errors by recurring patterns:

@@ -1,17 +1,17 @@
 @echo off
-rem Carga el entorno de Visual Studio y ejecuta scripts\compilar.ps1.
+rem Carrega o ambiente do Visual Studio e executa scripts\compilar.ps1.
 cd /d "%~dp0.."
 if not exist logs mkdir logs
 echo ==========================================================
-echo  Compilando Okami Recomp. Puede tardar bastante.
-echo  El progreso se guarda en logs\2_compilar.log
+echo  Compilando Okami Recomp. Pode levar algum tempo.
+echo  O progresso sera registrado em logs\2_compilar.log
 echo ==========================================================
 set "VSWHERE=%ProgramFiles(x86)%\Microsoft Visual Studio\Installer\vswhere.exe"
 set "VSPATH="
 for /f "usebackq tokens=*" %%i in (`"%VSWHERE%" -latest -products * -requires Microsoft.VisualStudio.Component.VC.Tools.x86.x64 -property installationPath`) do set "VSPATH=%%i"
 if not defined VSPATH (
-  echo No se encontro Visual Studio con C++. > logs\2_compilar.log
-  echo No se encontro Visual Studio con C++. Corre primero scripts\1_instalar_herramientas.cmd
+  echo Visual Studio com ferramentas C++ nao foi encontrado. > logs\2_compilar.log
+  echo Visual Studio com C++ nao foi encontrado. Execute antes scripts\1_instalar_ferramentas.cmd
   pause
   exit /b 1
 )
@@ -21,9 +21,9 @@ powershell -NoProfile -ExecutionPolicy Bypass -File "%~dp0compilar.ps1" %* > log
 set "RC=%errorlevel%"
 echo [codigo final %RC%] >> logs\2_compilar.log
 echo.
-echo Termino (codigo %RC%). Revisa logs\2_compilar.log
+echo Processo concluido (codigo %RC%). Verifique logs\2_compilar.log
 if %RC% neq 0 (
-  echo Detectados errores. Analizando patrones automaticamente...
+  echo Detectados erros na compilacao. Analisando padroes automaticamente...
   python tools\analisar_erros.py logs\2_compilar.log
 )
 pause

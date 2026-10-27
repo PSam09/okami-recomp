@@ -1,11 +1,11 @@
 @echo off
-rem Recompila rapido solo los overrides de Okami sin regenerar todo el C++ (~1 min).
+rem Recompila rapidamente apenas os overrides de Okami sem regenerar todo o C++ (~1 min).
 cd /d "%~dp0.."
 set "VSWHERE=%ProgramFiles(x86)%\Microsoft Visual Studio\Installer\vswhere.exe"
 set "VSPATH="
 for /f "usebackq tokens=*" %%i in (`"%VSWHERE%" -latest -products * -requires Microsoft.VisualStudio.Component.VC.Tools.x86.x64 -property installationPath`) do set "VSPATH=%%i"
 if not defined VSPATH (
-  echo No se encontro Visual Studio con C++.
+  echo Visual Studio com C++ nao foi encontrado.
   pause
   exit /b 1
 )

@@ -1,11 +1,11 @@
 #!/usr/bin/env python3
 """
-Herramienta de correccion automatizada en lote (Batch Auto-Fix) para Okami Recomp.
-Aplica correcciones automaticas agrupadas ante errores conocidos del recompilador,
-compilador MSVC o del runtime nativo.
+Ferramenta de correção automatizada em lote (Batch Auto-Fix) para Okami Recomp.
+Aplica correções automáticas agrupadas diante de erros conhecidos do recompilador,
+compilador MSVC ou do runtime nativo.
 
 Uso:
-    python tools/auto_fix.py [archivo_log] [--stubs] [--syscalls] [--all]
+    python tools/auto_fix.py [arquivo_log] [--stubs] [--syscalls] [--all]
 """
 
 import sys
@@ -18,7 +18,7 @@ PLANTILLA_TOML = RAIZ / "config" / "recomp.template.toml"
 FUNCMAP_CSV = RAIZ / "config" / "funcmap.csv"
 OVERRIDES_CPP = RAIZ / "src" / "okami_overrides.cpp"
 
-def cargar_funcmap():
+def carregar_funcmap():
     func_by_addr = {}
     func_by_name = {}
     if not FUNCMAP_CSV.exists():
@@ -35,7 +35,7 @@ def cargar_funcmap():
     return func_by_addr, func_by_name
 
 def fix_unresolved_stubs(log_path: Path):
-    """Detecta simbolos no resueltos en el log y los agrega como stubs en recomp.template.toml si existen."""
+    """Detecta símbolos não resolvidos no log e os adiciona como stubs em recomp.template.toml se existirem."""
     if not log_path.exists():
         return 0
     
@@ -45,11 +45,11 @@ def fix_unresolved_stubs(log_path: Path):
     # Buscar LNK2019: unresolved external symbol
     missing_syms = set(re.findall(r"unresolved external symbol \"?([a-zA-Z0-9_]+)\"?", content))
     if not missing_syms:
-        print("No se encontraron simbolos no resueltos en el log.")
+        print("Nenhum símbolo não resolvido foi detectado no log.")
         return 0
 
-    print(f"Encontrados {len(missing_syms)} simbolos no resueltos: {missing_syms}")
-    func_by_addr, func_by_name = cargar_funcmap()
+    print(f"Detectados {len(missing_syms)} símbolos não resolvidos: {missing_syms}")
+    func_by_addr, func_by_name = carregar_funcmap()
 
     toml_text = PLANTILLA_TOML.read_text(encoding="utf-8")
     added = 0
@@ -58,21 +58,21 @@ def fix_unresolved_stubs(log_path: Path):
             addr = func_by_name[sym]
             stub_entry = f'  "{sym}@0x{addr:08X}",'
             if stub_entry not in toml_text:
-                # Insertar en stubs = [
+                # Inserir em stubs = [
                 idx = toml_text.find("stubs = [")
                 if idx != -1:
                     insert_pos = toml_text.find("\n", idx) + 1
                     toml_text = toml_text[:insert_pos] + stub_entry + "\n" + toml_text[insert_pos:]
                     added += 1
-                    print(f" [+] Stub anadido a recomp.template.toml: {stub_entry.strip()}")
+                    print(f" [+] Stub adicionado a recomp.template.toml: {stub_entry.strip()}")
 
     if added > 0:
         PLANTILLA_TOML.write_text(toml_text, encoding="utf-8")
-        print(f">> {added} stubs nuevos anadidos a config/recomp.template.toml!")
+        print(f">> {added} novos stubs adicionados a config/recomp.template.toml!")
     return added
 
 def fix_unhandled_syscalls(log_path: Path):
-    """Detecta llamadas a syscalls sin implementar y genera un hook en okami_overrides.cpp."""
+    """Detecta chamadas a syscalls não implementadas e relata para criação de hook."""
     if not log_path.exists():
         return 0
 
@@ -81,21 +81,20 @@ def fix_unhandled_syscalls(log_path: Path):
 
     syscalls = set(re.findall(r"(?:unhandled|unknown) syscall:?\s*0x([0-9a-fA-F]+)", content))
     if not syscalls:
-        print("No se detectaron syscalls no implementadas en el log.")
+        print("Nenhuma syscall não implementada foi detectada no log.")
         return 0
 
-    print(f"Syscalls pendientes encontradas: {[f'0x{sc}' for sc in syscalls]}")
-    # En okami_overrides.cpp se pueden anadir despachadores
+    print(f"Syscalls pendentes encontradas: {[f'0x{sc}' for sc in syscalls]}")
     return len(syscalls)
 
 def main():
     log_default = Path("logs/2_compilar.log")
     log_path = Path(sys.argv[1]) if len(sys.argv) > 1 and not sys.argv[1].startswith("--") else log_default
 
-    print(f"Iniciando auto_fix con log: {log_path}...")
+    print(f"Iniciando auto_fix com log: {log_path}...")
     stubs_fixed = fix_unresolved_stubs(log_path)
     syscalls_found = fix_unhandled_syscalls(log_path)
-    print(f"Auto-fix completado. Stubs reparados: {stubs_fixed}, Syscalls detectadas: {syscalls_found}.")
+    print(f"Auto-fix concluído. Stubs corrigidos: {stubs_fixed}, Syscalls detectadas: {syscalls_found}.")
 
 if __name__ == "__main__":
     main()

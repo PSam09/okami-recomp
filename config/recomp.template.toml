@@ -1,37 +1,37 @@
-# PS2Recomp configuration for Okami (SLUS_211.15)
-# Generado por tools/elf_functions.py
+# Configuração do PS2Recomp para Okami (SLUS_211.15)
+# Gerado automaticamente por tools/elf_functions.py
 
 [general]
-# Path to input ELF file
+# Caminho para o executavel ELF
 input = "@ELF@"
 
-# Path to function map CSV
+# Caminho para o mapeamento CSV de funcoes
 ghidra_output = "@MAP@"
 
-# Path to output directory
+# Diretorio de saida do codigo C++
 output = "@OUT@"
 
-# Single file output mode
+# Modo de saida em arquivo unico
 single_file_output = false
 
-# Patch policy
+# Politica de substituicao
 patch_syscalls = false
 patch_cop0 = true
 patch_cache = true
 
-# Funciones stubbed con handler nativo en el runtime
+# Funcoes com stub para chamadas de runtime nativo
 stubs = [
-  "SetupThread@0x001001C4",
-  "SetupContext@0x001001E0",
-  "ExitThread@0x00100250",
   "ResetEE@0x003FE390",
   "Exit@0x003FE3C0",
   "CreateThread@0x003FE5A0",
   "StartThread@0x003FE5C0",
+  "ExitThread@0x003FE5D0",
   "TerminateThread@0x003FE5F0",
   "ChangeThreadPriority@0x003FE630",
   "SleepThread@0x003FE6C0",
   "WakeupThread@0x003FE6D0",
+  "SetupThread@0x003FE760",
+  "SetupContext@0x003FE770",
   "SetupFD@0x003FE7A0",
   "SetupFreeFD@0x003FE7B0",
   "FlushCache@0x003FEA20",
@@ -41,11 +41,11 @@ stubs = [
   "SifGetReg@0x003FEBA0",
 ]
 
-# Entry points adicionales si aplica
+# Pontos de entrada
 entry_points = [
   "entry@0x00100008",
 ]
 
-# Parches a instrucciones problematicas detectadas en el ELF
+# Patches para instrucoes problematicas detectadas no ELF
 instruction_patches = [
 ]

@@ -23,6 +23,8 @@ PATRONES = [
     ("MSVC_SIMBOLO_NAO_RESOLVIDO", re.compile(r"error LNK2019: unresolved external symbol \"?(?P<simbolo>[^\" ]+)\"?")),
     ("RECOMP_INSTRUCAO_DESCONHECIDA", re.compile(r"(?:unknown|unsupported) instruction:? 0x(?P<opcode>[0-9a-fA-F]+)")),
     ("RECOMP_SOBREPOSICAO_FUNCAO", re.compile(r"overlap.*?0x(?P<dir1>[0-9A-Fa-f]+).*?0x(?P<dir2>[0-9A-Fa-f]+)")),
+    ("RUNTIME_BRANCH_MISSING_TARGET", re.compile(r"\[guest-branch:missing-target\].*?source=0x(?P<src>[0-9a-fA-F]+)\s+target=0x(?P<dst>[0-9a-fA-F]+)")),
+    ("RUNTIME_THREAD_DORMANT", re.compile(r"\[(?:gow|okami)-trace\]\s+(?P<detalhe>main thread dormant)")),
     ("RUNTIME_SYSCALL_NAO_IMPLEMENTADA", re.compile(r"(?:unhandled|unknown) syscall:? 0x(?P<num>[0-9a-fA-F]+)")),
     ("RUNTIME_IOP_RPC_NAO_IMPLEMENTADA", re.compile(r"(?:unhandled|unknown) (?:IOP RPC|SifRpc):? 0x(?P<rpc>[0-9a-fA-F]+)")),
     ("RUNTIME_ERRO_DMA", re.compile(r"(?:DMA error|stall on channel) (?P<canal>\d+)")),

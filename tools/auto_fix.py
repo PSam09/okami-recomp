@@ -87,6 +87,22 @@ def fix_unhandled_syscalls(log_path: Path):
     print(f"Syscalls pendentes encontradas: {[f'0x{sc}' for sc in syscalls]}")
     return len(syscalls)
 
+def fix_missing_targets(log_path: Path):
+    """Detecta alvos indiretos faltantes (guest-branch:missing-target) e sugere/gera stubs."""
+    if not log_path.exists():
+        return 0
+
+    with open(log_path, "r", encoding="utf-8", errors="replace") as f:
+        content = f.read()
+
+    targets = set(re.findall(r"\[guest-branch:missing-target\].*?target=0x([0-9a-fA-F]+)", content))
+    if not targets:
+        print("Nenhum alvo de branch faltante foi detectado no log.")
+        return 0
+
+    print(f"Alvos de branch indireto detectados: {[f'0x{t}' for t in targets]}")
+    return len(targets)
+
 def main():
     log_default = Path("logs/2_compilar.log")
     log_path = Path(sys.argv[1]) if len(sys.argv) > 1 and not sys.argv[1].startswith("--") else log_default
@@ -94,7 +110,8 @@ def main():
     print(f"Iniciando auto_fix com log: {log_path}...")
     stubs_fixed = fix_unresolved_stubs(log_path)
     syscalls_found = fix_unhandled_syscalls(log_path)
-    print(f"Auto-fix concluído. Stubs corrigidos: {stubs_fixed}, Syscalls detectadas: {syscalls_found}.")
+    targets_found = fix_missing_targets(log_path)
+    print(f"Auto-fix concluído. Stubs: {stubs_fixed}, Syscalls: {syscalls_found}, Missing targets: {targets_found}.")
 
 if __name__ == "__main__":
     main()

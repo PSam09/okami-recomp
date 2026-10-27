@@ -150,10 +150,12 @@ def scan_functions(entry, text_addr, text_size, code):
                 
     sorted_starts = sorted(list(starts))
     
-    # Identificar syscalls na tabela do kernel SCE
+    # Identificar syscalls na tabela do kernel SCE (localizada acima de 0x003F0000 no SDK)
     syscall_names_map = {}
     for i in range(0, text_size - 8, 4):
         curr_addr = text_addr + i
+        if curr_addr < 0x003F0000:
+            continue
         w = struct.unpack('<I', code[i:i+4])[0]
         if (w & 0xFC00003F) == 0x0000000C:
             if i >= 4:

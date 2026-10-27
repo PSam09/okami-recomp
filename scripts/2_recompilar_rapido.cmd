@@ -1,5 +1,5 @@
 @echo off
-rem Recompila rapidamente apenas os overrides de Okami sem regenerar todo o C++ (~1 min).
+rem Carrega o ambiente do Visual Studio e executa recompilacao rapida de overrides.
 cd /d "%~dp0.."
 set "VSWHERE=%ProgramFiles(x86)%\Microsoft Visual Studio\Installer\vswhere.exe"
 set "VSPATH="
@@ -9,14 +9,13 @@ if not defined VSPATH (
   pause
   exit /b 1
 )
+set VSCMD_SKIP_SENDTELEMETRY=1
 call "%VSPATH%\VC\Auxiliary\Build\vcvars64.bat" > nul 2>&1
-powershell -NoProfile -ExecutionPolicy Bypass -Command "& {
-    . scripts\common.ps1
-    $work = Get-OkamiWorkDir
-    $runner = Join-Path $work 'PS2Recomp\ps2xRuntime\src\runner'
-    Copy-Item 'src\okami_overrides.cpp' -Destination (Join-Path $runner 'okami_overrides.cpp') -Force
-    if (Test-Path 'src\*.h') { Copy-Item 'src\*.h' -Destination $runner -Force }
-    $bld = Join-Path $work 'PS2Recomp\out\build'
-    cmake --build $bld --target ps2EntryRunner
-}"
-pause
+if exist "%VSPATH%\Common7\IDE\CommonExtensions\Microsoft\CMake\Ninja\ninja.exe" (
+  set "PATH=%VSPATH%\Common7\IDE\CommonExtensions\Microsoft\CMake\Ninja;%PATH%"
+)
+if defined NON_INTERACTIVE (set "PAUSE_CMD=rem") else (set "PAUSE_CMD=pause")
+powershell -NoProfile -ExecutionPolicy Bypass -File "%~dp0recompilar_rapido.ps1"
+set "RC=%errorlevel%"
+%PAUSE_CMD%
+exit /b %RC%

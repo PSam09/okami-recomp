@@ -29,5 +29,5 @@ if %RC% neq 0 (
   echo Detectados erros na compilacao. Analisando padroes automaticamente...
   python tools\analisar_erros.py logs\2_compilar.log
 )
-pause
+if not defined NON_INTERACTIVE pause
 exit /b %RC%

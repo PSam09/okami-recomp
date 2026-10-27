@@ -38,11 +38,15 @@ def carregar_funcmap():
     intervals.sort()
     return func_by_addr, func_by_name, intervals
 
+_ELF_CACHE = {}
+
 def obter_offset_elf(addr: int, elf_path: Path):
     if not elf_path.exists():
         return None
-    with open(elf_path, "rb") as f:
-        elf = f.read()
+    if elf_path not in _ELF_CACHE:
+        with open(elf_path, "rb") as f:
+            _ELF_CACHE[elf_path] = f.read()
+    elf = _ELF_CACHE[elf_path]
     if len(elf) < 0x34:
         return None
     e_phoff = int.from_bytes(elf[0x1C:0x20], "little")
@@ -214,15 +218,117 @@ def fix_missing_targets(log_path: Path):
 
     return len(targets_str)
 
+def fix_fallthroughs(auto_apply: bool = True) -> int:
+    """Detecta automaticamente todas as funções no funcmap.csv cortadas por fallthrough e gera src/okami_fallthroughs.h."""
+    elf_path = RAIZ / "game" / "SLUS_211.15"
+    if not elf_path.exists():
+        print(f"ELF não encontrado em {elf_path}.")
+        return 0
+
+    with open(elf_path, "rb") as f:
+        elf = f.read()
+
+    funcs = []
+    with open(FUNCMAP_CSV, "r", encoding="utf-8") as f:
+        reader = csv.reader(f)
+        header = next(reader, None)
+        for row in reader:
+            if len(row) >= 4:
+                funcs.append((row[0], int(row[1], 16), int(row[2], 16), int(row[3])))
+
+    pairs = []
+    for i in range(len(funcs) - 1):
+        name, start, end, size = funcs[i]
+        next_name, next_start, next_end, next_size = funcs[i+1]
+        if end == next_start:
+            foff = obter_offset_elf(start, elf_path)
+            if foff is None:
+                continue
+            code = elf[foff : foff + size]
+            if len(code) != size or size < 4:
+                continue
+
+            k = len(code)
+            while k >= 4 and int.from_bytes(code[k-4:k], "little") == 0:
+                k -= 4
+            if k == 0:
+                continue
+
+            has_ret = False
+            for pos in range(max(0, k - 16), k, 4):
+                insn = int.from_bytes(code[pos:pos+4], "little")
+                op = (insn >> 26) & 0x3f
+                funct = insn & 0x3f
+                if op == 2: # j
+                    target = ((insn & 0x03ffffff) << 2) | (start & 0xf0000000)
+                    if target < start or target >= end:
+                        has_ret = True
+                elif op == 0 and funct in [8, 9]: # jr, jalr
+                    has_ret = True
+
+            if not has_ret:
+                pairs.append((name, start, next_name, next_start))
+
+    print(f"Detectados {len(pairs)} pontos de entrada com fallthrough truncado em funcmap.csv.")
+    if not auto_apply:
+        return len(pairs)
+
+    out_header = RAIZ / "src" / "okami_fallthroughs.h"
+    lines = [
+        "// Okami-Port: Trampolins de fallthrough gerados automaticamente por tools/auto_fix.py --fallthroughs",
+        "// Conecta blocos de prologo truncados em funcmap.csv diretamente a funcao alvo.",
+        "#pragma once",
+        "",
+        '#include "ps2_runtime.h"',
+        '#include <ps2_recompiled_functions.h>',
+        "",
+        "namespace okami_fallthroughs",
+        "{"
+    ]
+
+    for name, start, next_name, next_start in pairs:
+        fn1 = f"{name}_0x{start:x}"
+        lines.append(f"    inline void chain_0x{start:08x}(uint8_t *rdram, R5900Context *ctx, PS2Runtime *runtime)")
+        lines.append("    {")
+        lines.append(f"        {fn1}(rdram, ctx, runtime);")
+        lines.append(f"        if (ctx->pc == 0x{next_start:08X}u)")
+        lines.append("        {")
+        lines.append(f"            auto fn = runtime->lookupFunction(0x{next_start:08X}u);")
+        lines.append("            if (fn)")
+        lines.append("            {")
+        lines.append("                fn(rdram, ctx, runtime);")
+        lines.append("            }")
+        lines.append("        }")
+        lines.append("    }")
+        lines.append("")
+
+    lines.append("    inline void applyOkamiFallthroughs(PS2Runtime &runtime)")
+    lines.append("    {")
+    for name, start, next_name, next_start in pairs:
+        lines.append(f"        runtime.replaceFunction(0x{start:08X}u, chain_0x{start:08x});")
+    lines.append("    }")
+    lines.append("}")
+    lines.append("")
+
+    out_header.write_text("\n".join(lines), encoding="utf-8")
+    print(f">> Arquivo {out_header} gerado com sucesso com {len(pairs)} trampolins!")
+    return len(pairs)
+
 def main():
     log_default = Path("logs/2_compilar.log")
     log_path = Path(sys.argv[1]) if len(sys.argv) > 1 and not sys.argv[1].startswith("--") else log_default
+
+    if "--fallthroughs" in sys.argv:
+        print("Executando gerador automatizado de fallthroughs...")
+        fix_fallthroughs(auto_apply=True)
+        return
 
     print(f"Iniciando auto_fix com log: {log_path}...")
     stubs_fixed = fix_unresolved_stubs(log_path)
     syscalls_found = fix_unhandled_syscalls(log_path)
     targets_found = fix_missing_targets(log_path)
-    print(f"Auto-fix concluído. Stubs: {stubs_fixed}, Syscalls: {syscalls_found}, Missing targets: {targets_found}.")
+    fallthroughs_count = fix_fallthroughs(auto_apply=True)
+    print(f"Auto-fix concluído. Stubs: {stubs_fixed}, Syscalls: {syscalls_found}, Missing targets: {targets_found}, Fallthroughs: {fallthroughs_count}.")
 
 if __name__ == "__main__":
     main()

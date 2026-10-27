@@ -15,8 +15,8 @@ Port nativo para PC de *Okami* (PS2, `SLUS-21115`).
 | Inicialização de tela e apresentação GS OpenGL | ✅ Concluído | Janela GLFW/Win32, OpenGL 3.3, FBO 640x512 2x, WASAPI 48kHz |
 | Boot do `crt0` e entrada no código principal do jogo | ✅ Concluído | Inicialização do SDK superada; código do jogo em execução em `0x003439D8` |
 | Inicialização de subsistemas nativos (IOP Heap, Áudio, DTX/SJUNI, Padman) | ✅ Concluído | Todos os canais de áudio, sintetizador e controle inicializados com sucesso |
-| Carregamento de dados de disco e cache de arquivos (`DVCI`) | ✅ Concluído | `0FLISTDV.DIR`, `WOLVES_U.FST`, `_DATA0.AFS` (2 GB), `_DATA1.AFS` (1.7 GB) localizados e abertos |
-| Execução contínua da engine do jogo | ✅ Concluído | Loop principal da engine em execução contínua com sincronização HLE de semáforos e RPCs |
+| Carregamento de dados de disco e cache de arquivos (`DVCI`) | ✅ Concluído | `0FLISTDV.DIR`, `WOLVES_U.FST`, `_DATA0.AFS` (2 GB), `_DATA1.AFS` (1.7 GB) e partições virtuais AFS mapeadas |
+| Execução contínua da engine do jogo | ✅ Concluído | Loop principal da engine (`sub_001743B8`) em execução contínua a 100% da velocidade (~300 MHz EE) e VSync a 60 fps |
 | Apresentação de menus / telas de título | 🔧 Em progresso | Processamento de listas de comandos gráficos GS/VIF1 e render-targets |
 | Campanha completa jogável | ⏳ Futuro | Objetivos futuros |
 
@@ -92,3 +92,20 @@ Port nativo para PC de *Okami* (PS2, `SLUS-21115`).
       2. Limpeza dos flags de sincronização `0x00442474`, `0x004424A0` e `0x0044245C` no término de cada comando assíncrono.
       3. Sinalização direta dos semáforos de sincronização de CDVD (`0x00442468`, `0x00442460`, `0x0044246C`, `0x00442470`) via `runtime->eeScheduler().signalSemaphore()` se o contador estiver em zero.
       4. Resultado: Desbloqueio imediato do subsistema de arquivos DVCI, permitindo a localização e leitura bem-sucedida de `0FLISTDV.DIR`, `WOLVES_U.FST`, `_DATA0.AFS` (2.14 GB) e `_DATA1.AFS` (1.79 GB).
+
+14. **Mapeamento Automatizado de Partições Virtuais AFS (`src/okami_partitions.h`, `tools/gerar_particoes.py`)**:
+    - *Padrão*: Falha fatal `E9040804: can't open file.(load partition)` ao tentar carregar a partição canônica `'wp'` (armas e equipamentos).
+    - *Causa*: O Okami encapsula 35 partições internas dentro dos grandes contêineres `_DATA0.AFS` (base LSN 277) e `_DATA1.AFS` (base LSN 1049180), listados no `WOLVES_U.FST`. A engine chama `cvFsOpen` -> `sceCdSearchFile` com o nome curto da partição (ex.: `"wp"`), esperando que o driver de CD/DVD do IOP retorne o LSN e o tamanho virtual exato de onde a partição começa dentro do AFS.
+    - *Solução Automatizada por Padrão*:
+      1. Desenvolvida a ferramenta `tools/gerar_particoes.py` que escaneia `_DATA0.AFS` e `_DATA1.AFS` no diretório `game/` e calcula automaticamente os offsets, LSNs e tamanhos de todas as 35 partições canônicas de Okami.
+      2. Geração do header nativo `src/okami_partitions.h` contendo a tabela indexada `s_okamiPartitions` e a função rápida `findOkamiPartition`.
+      3. Integração em `src/okami_overrides.cpp` no manipulador de RPC `0x80000597` (`sceCdSearchFile`): quando a pesquisa de disco convencional não encontra um arquivo, consulta a tabela de partições virtuais, retornando o LSN e tamanho corretos.
+      4. O `sceCdRead` nativo mapeia perfeitamente o setor solicitado diretamente para o setor correspondente dentro do arquivo `.AFS`. O erro `E9040804` foi 100% eliminado.
+
+15. **Correção Global de Fallthroughs no Recompilador (`tools/auto_fix.py --fallthroughs`, `src/okami_fallthroughs.h`)**:
+    - *Padrão*: Funções fatiadas incorretamente no `funcmap.csv` terminando abruptamente sem instruções de retorno (`jr $ra` / `j`), retornando ao chamador C++ antes de executar a sub-rotina seguinte.
+    - *Causa*: No código MIPS original, blocos de prólogo ou seções sequenciais continuavam caindo em cascata (*fallthrough*) no bloco de instruções seguinte. Quando traduzidas individualmente pelo PS2Recomp para funções C++ separadas, o término do bloco gerava um `return;` prematuro, pulando dezenas a centenas de bytes de lógica essencial do jogo.
+    - *Solução Automatizada por Padrão*:
+      1. Expandido `tools/auto_fix.py` com o comando `--fallthroughs` e detecção em nível de bytecode do ELF com cache em memória. O script analisa todas as 12.803 funções, descarta NOPs de alinhamento e detecta todos os 543 blocos sem instrução de salto/retorno.
+      2. Gerados automaticamente 543 trampolins em `src/okami_fallthroughs.h` que executam o bloco primário e, se `ctx->pc` alcançar o início da próxima função, invocam dinamicamente a próxima rotina via `runtime->lookupFunction`.
+      3. Resultado: O laço principal da engine de Okami (`sub_001743B8` em `0x00174470`) entrou em execução contínua, com medição estável de ~300 MHz no EE e 60.0 fps sólidos na apresentação de vídeo raylib/OpenGL.

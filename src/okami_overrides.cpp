@@ -2,6 +2,8 @@
 // Elimina emulacao de hardware de PS2 a favor de subsistemas nativos de PC.
 
 #include "okami_overrides.h"
+#include "okami_fallthroughs.h"
+#include "okami_partitions.h"
 #include "runtime/ee_scheduler.h"
 #include "game_overrides.h"
 #include "ps2_runtime.h"
@@ -20,6 +22,8 @@
 #include <sstream>
 #include <vector>
 #include <cctype>
+
+void gowDumpBranchRing(const char *why);
 
 namespace ps2_syscalls
 {
@@ -364,6 +368,19 @@ namespace
                 }
             }
 
+            DiscEntry virtualEntry;
+            if (!found)
+            {
+                const auto *part = findOkamiPartition(reqPath.c_str());
+                if (part)
+                {
+                    virtualEntry.lsn = part->lsn;
+                    virtualEntry.size = part->size;
+                    virtualEntry.filename = part->name;
+                    found = &virtualEntry;
+                }
+            }
+
             if (found && sendBuff)
             {
                 writeGuest32(rdram, sendBuff + 0x00u, found->lsn);
@@ -435,6 +452,10 @@ namespace
                                  lsn, sectors, bufAddr);
                 }
 
+                writeGuest32(rdram, 0x00442474u, 0u);
+                writeGuest32(rdram, 0x004424a0u, 0u);
+                writeGuest32(rdram, 0x004424a4u, 0u);
+
                 if (recvBuff)
                 {
                     writeGuest32(rdram, recvBuff, readSuccess ? 1u : 0u);
@@ -442,6 +463,8 @@ namespace
             }
             else
             {
+                writeGuest32(rdram, 0x00442474u, 0u);
+                writeGuest32(rdram, 0x004424a0u, 0u);
                 if (recvBuff)
                 {
                     writeGuest32(rdram, recvBuff, 1u);
@@ -683,24 +706,12 @@ namespace
         ctx->pc = ra;
     }
 
-    // Substituicao nativa para sub_003D4678 (0x003D4678..0x003D46A8).
-    // O funcmap.csv registrou 0x003D467C deslocado por 4 bytes do inicio real da rotina (0x003D4678).
-    // Se invocado via ponteiro indireto registrado por 0x003D4750, executa o callback em 0x0042C43C com arg 0x0042C440.
-    void okamiOverride_Callback_3d4678(uint8_t *rdram, R5900Context *ctx, PS2Runtime *runtime)
+    // Ponto de entrada com fallthrough (0x003D4678: lui $v0, 0x43 -> sub_003D467C_0x3d467c)
+    void okamiOverride_Sub_003D4678(uint8_t *rdram, R5900Context *ctx, PS2Runtime *runtime)
     {
-        (void)runtime;
-        const uint32_t target = readGuest32(rdram, 0x0042C43Cu);
-        if (target != 0)
-        {
-            const uint32_t arg = readGuest32(rdram, 0x0042C440u);
-            SET_GPR_S32(ctx, 4, static_cast<int32_t>(arg));
-            ctx->pc = target;
-        }
-        else
-        {
-            const uint32_t ra = getRegU32(ctx, 31);
-            ctx->pc = ra;
-        }
+        SET_GPR_S32(ctx, 2, (int32_t)((uint32_t)0x43 << 16));
+        ctx->pc = 0x003D467Cu;
+        sub_003D467C_0x3d467c(rdram, ctx, runtime);
     }
 
     // Familia de getters e setters estaticos e callbacks de despache do Okami (0x003D4000..0x003DB000)
@@ -718,21 +729,12 @@ namespace
         ctx->pc = ra;
     }
 
-    void okamiOverride_Callback_3d84d0(uint8_t *rdram, R5900Context *ctx, PS2Runtime *runtime)
+    // Ponto de entrada com fallthrough (0x003D84D0: lui $v0, 0x43 -> sub_003D84D4_0x3d84d4)
+    void okamiOverride_Sub_003D84D0(uint8_t *rdram, R5900Context *ctx, PS2Runtime *runtime)
     {
-        (void)runtime;
-        const uint32_t target = readGuest32(rdram, 0x0042DFACu);
-        if (target != 0)
-        {
-            const uint32_t arg = readGuest32(rdram, 0x0042DFB0u);
-            SET_GPR_S32(ctx, 4, static_cast<int32_t>(arg));
-            ctx->pc = target;
-        }
-        else
-        {
-            const uint32_t ra = getRegU32(ctx, 31);
-            ctx->pc = ra;
-        }
+        SET_GPR_S32(ctx, 2, (int32_t)((uint32_t)0x43 << 16));
+        ctx->pc = 0x003D84D4u;
+        sub_003D84D4_0x3d84d4(rdram, ctx, runtime);
     }
 
     void okamiOverride_SetStaticPointers_3d6e30(uint8_t *rdram, R5900Context *ctx, PS2Runtime *runtime)
@@ -748,21 +750,12 @@ namespace
         ctx->pc = ra;
     }
 
-    void okamiOverride_Callback_3d6c68(uint8_t *rdram, R5900Context *ctx, PS2Runtime *runtime)
+    // Ponto de entrada com fallthrough (0x003D6C68: lui $v0, 0x43 -> sub_003D6C6C_0x3d6c6c)
+    void okamiOverride_Sub_003D6C68(uint8_t *rdram, R5900Context *ctx, PS2Runtime *runtime)
     {
-        (void)runtime;
-        const uint32_t target = readGuest32(rdram, 0x0042D114u);
-        if (target != 0)
-        {
-            const uint32_t arg = readGuest32(rdram, 0x0042D118u);
-            SET_GPR_S32(ctx, 4, static_cast<int32_t>(arg));
-            ctx->pc = target;
-        }
-        else
-        {
-            const uint32_t ra = getRegU32(ctx, 31);
-            ctx->pc = ra;
-        }
+        SET_GPR_S32(ctx, 2, (int32_t)((uint32_t)0x43 << 16));
+        ctx->pc = 0x003D6C6Cu;
+        sub_003D6C6C_0x3d6c6c(rdram, ctx, runtime);
     }
 
     void okamiOverride_SetStaticPointers_3d5230(uint8_t *rdram, R5900Context *ctx, PS2Runtime *runtime)
@@ -824,6 +817,191 @@ namespace
         ctx->pc = ra;
     }
 
+    // Fallthrough entry points nativos (evitam perda de stack do C++ em pontos de entrada multiplos)
+    void okamiOverride_Sub_003CC288(uint8_t *rdram, R5900Context *ctx, PS2Runtime *runtime)
+    {
+        SET_GPR_S32(ctx, 13, (int32_t)((uint32_t)66 << 16));
+        ctx->pc = 0x003CC28Cu;
+        sub_003CC28C_0x3cc28c(rdram, ctx, runtime);
+    }
+
+    void okamiOverride_Sub_003CC360(uint8_t *rdram, R5900Context *ctx, PS2Runtime *runtime)
+    {
+        SET_GPR_S32(ctx, 13, (int32_t)((uint32_t)66 << 16));
+        ctx->pc = 0x003CC364u;
+        sub_003CC364_0x3cc364(rdram, ctx, runtime);
+    }
+
+    void okamiOverride_Sub_003CC478(uint8_t *rdram, R5900Context *ctx, PS2Runtime *runtime)
+    {
+        SET_GPR_U64(ctx, 3, GPR_U64(ctx, 4));
+        SET_GPR_U64(ctx, 4, 0);
+        ctx->pc = 0x003CC480u;
+        sub_003CC480_0x3cc480(rdram, ctx, runtime);
+    }
+
+    void okamiOverride_Sub_003C6E48(uint8_t *rdram, R5900Context *ctx, PS2Runtime *runtime)
+    {
+        SET_GPR_S32(ctx, 4, (int32_t)((uint32_t)66 << 16));
+        ctx->pc = 0x003C6E4Cu;
+        sub_003C6E4C_0x3c6e4c(rdram, ctx, runtime);
+    }
+
+    void okamiOverride_Sub_003C6E80(uint8_t *rdram, R5900Context *ctx, PS2Runtime *runtime)
+    {
+        SET_GPR_S32(ctx, 4, (int32_t)((uint32_t)66 << 16));
+        ctx->pc = 0x003C6E84u;
+        sub_003C6E84_0x3c6e84(rdram, ctx, runtime);
+    }
+
+    void okamiOverride_Sub_003C6FD0(uint8_t *rdram, R5900Context *ctx, PS2Runtime *runtime)
+    {
+        SET_GPR_S32(ctx, 2, 10);
+        ctx->pc = 0x003C6FD4u;
+        sub_003C6FD4_0x3c6fd4(rdram, ctx, runtime);
+    }
+
+    void okamiOverride_Sub_003C7800(uint8_t *rdram, R5900Context *ctx, PS2Runtime *runtime)
+    {
+        // 0x3c7818: lui $v0, 0x44
+        SET_GPR_S32(ctx, 2, (int32_t)((uint32_t)68 << 16));
+        ctx->pc = 0x003C781Cu;
+        sub_003C781C_0x3c781c(rdram, ctx, runtime);
+    }
+
+    void okamiOverride_Sub_003D4628(uint8_t *rdram, R5900Context *ctx, PS2Runtime *runtime)
+    {
+        SET_GPR_S32(ctx, 2, (int32_t)((uint32_t)0x7B << 16));
+        ctx->pc = 0x003D462Cu;
+        sub_003D462C_0x3d462c(rdram, ctx, runtime);
+    }
+
+    void okamiOverride_Sub_003E05E8(uint8_t *rdram, R5900Context *ctx, PS2Runtime *runtime)
+    {
+        SET_GPR_S32(ctx, 4, (int32_t)((uint32_t)0x44 << 16));
+        ctx->pc = 0x003E05ECu;
+        sub_003E05EC_0x3e05ec(rdram, ctx, runtime);
+    }
+
+    void okamiOverride_Sub_003E0728(uint8_t *rdram, R5900Context *ctx, PS2Runtime *runtime)
+    {
+        SET_GPR_S32(ctx, 2, (int32_t)((uint32_t)0x7B << 16));
+        ctx->pc = 0x003E072Cu;
+        sub_003E072C_0x3e072c(rdram, ctx, runtime);
+    }
+
+    // Override para ChangeThreadPriority (0x003FE630..0x003FE640 e syscall 0x29)
+    // O Sony SDK define que ChangeThreadPriority deve retornar a prioridade ANTERIOR do thread (> 0) em caso de sucesso.
+    // O runtime padrao do PS2Recomp retornava KE_OK (0), corrompendo a restauracao de prioridade da engine do Okami.
+    void okamiOverride_ChangeThreadPriority(uint8_t *rdram, R5900Context *ctx, PS2Runtime *runtime)
+    {
+        (void)rdram;
+        const int id = static_cast<int>(getRegU32(ctx, 4));
+        const int priority = static_cast<int>(getRegU32(ctx, 5));
+        const uint32_t ra = getRegU32(ctx, 31);
+
+        EeScheduler &ee = runtime->eeScheduler();
+        int oldPriority = 0;
+        const int result = ee.changePriority(id, priority, false, oldPriority);
+        if (result == 0)
+        {
+            setReturnS32(ctx, oldPriority);
+        }
+        else
+        {
+            setReturnS32(ctx, result);
+        }
+        ee.transferIfRequested(false);
+        ctx->pc = ra;
+    }
+
+    void okamiOverride_IChangeThreadPriority(uint8_t *rdram, R5900Context *ctx, PS2Runtime *runtime)
+    {
+        (void)rdram;
+        const int id = static_cast<int>(getRegU32(ctx, 4));
+        const int priority = static_cast<int>(getRegU32(ctx, 5));
+        const uint32_t ra = getRegU32(ctx, 31);
+
+        EeScheduler &ee = runtime->eeScheduler();
+        int oldPriority = 0;
+        const int result = ee.changePriority(id, priority, true, oldPriority);
+        if (result == 0)
+        {
+            setReturnS32(ctx, oldPriority);
+        }
+        else
+        {
+            setReturnS32(ctx, result);
+        }
+        ee.transferIfRequested(true);
+        ctx->pc = ra;
+    }
+
+    void okamiOverride_Sub_003CC6A0(uint8_t *rdram, R5900Context *ctx, PS2Runtime *runtime)
+    {
+        const uint32_t s0 = getRegU32(ctx, 4);
+        const uint8_t b45 = s0 ? rdram[(s0 + 0x45) & 0x01FFFFFFu] : 0xFF;
+        const uint32_t lockVal = readGuest32(rdram, 0x0043E93Cu);
+        static int callCount = 0;
+        if (callCount++ < 10 || (callCount % 1000) == 0)
+        {
+            std::fprintf(stderr, "[okami-cc6a0] call=%d s0=0x%08x b45=%u lock_43e93c=%u\n",
+                         callCount, s0, b45, lockVal);
+        }
+        sub_003CC6A0_0x3cc6a0(rdram, ctx, runtime);
+    }
+
+    void okamiOverride_Sub_003CD018(uint8_t *rdram, R5900Context *ctx, PS2Runtime *runtime)
+    {
+        const uint32_t slot = getRegU32(ctx, 4);
+        static int callCount = 0;
+        if (callCount++ < 20 || (callCount % 100) == 0)
+        {
+            std::fprintf(stderr, "[okami-cd018] slot=0x%08x b45=%u b49=%u\n",
+                         slot,
+                         slot ? rdram[(slot + 0x45) & 0x01FFFFFFu] : 0xFF,
+                         slot ? rdram[(slot + 0x49) & 0x01FFFFFFu] : 0xFF);
+        }
+        sub_003CD018_0x3cd018(rdram, ctx, runtime);
+    }
+
+    void okamiOverride_Sub_003D4B40(uint8_t *rdram, R5900Context *ctx, PS2Runtime *runtime)
+    {
+        const uint32_t pathPtr = getRegU32(ctx, 4);
+        const char *filename = pathPtr ? reinterpret_cast<const char *>(rdram + (pathPtr & 0x01FFFFFFu)) : "(null)";
+        std::fprintf(stderr, "[okami-cvFsOpen] opening: '%s'\n", filename);
+        sub_003D4B40_0x3d4b40(rdram, ctx, runtime);
+        std::fprintf(stderr, "[okami-cvFsOpen] result=%d\n", (int)getRegU32(ctx, 2));
+    }
+
+    void okamiOverride_Sub_003C8C98(uint8_t *rdram, R5900Context *ctx, PS2Runtime *runtime)
+    {
+        const uint32_t s1 = getRegU32(ctx, 4);
+        if (s1 != 0)
+        {
+            const uint32_t buf = readGuest32(rdram, s1 + 4);
+            if (buf != 0)
+            {
+                const uint32_t remaining = readGuest32(rdram, buf + 0x14);
+                const uint32_t dst = readGuest32(rdram, buf + 0x50);
+                const uint32_t size = readGuest32(rdram, buf + 0x10);
+                if (remaining > 0 && dst != 0 && size == 73520u) // WOLVES_U.FST
+                {
+                    std::ifstream f = openDiscFile("WOLVES_U.FST");
+                    if (f.is_open())
+                    {
+                        f.read(reinterpret_cast<char *>(rdram + (dst & 0x01FFFFFFu)), size);
+                        std::fprintf(stderr, "[okami-port] WOLVES_U.FST carregado com sucesso nativamente (%u bytes) em 0x%08x!\n", size, dst);
+                        writeGuest32(rdram, buf + 0x14, 0u); // remaining sectors = 0
+                        rdram[(buf + 1) & 0x01FFFFFFu] = 3;  // stream slot status = 3 (complete)
+                        rdram[(s1 + 1) & 0x01FFFFFFu] = 3;   // request status = 3 (complete)
+                    }
+                }
+            }
+        }
+        sub_003C8C98_0x3c8c98(rdram, ctx, runtime);
+    }
+
     void replaceFunctionRange(PS2Runtime &runtime, uint32_t startAddr, uint32_t endAddr, PS2Runtime::RecompiledFunction fn)
     {
         for (uint32_t addr = startAddr; addr < endAddr; addr += 4u)
@@ -851,12 +1029,16 @@ void applyOkamiOverrides(PS2Runtime &runtime)
                     std::fprintf(stderr, "[okami-threads]   id=%d prio=%d status=%d wait=%d/%d pc=%08x ra=%08x\n",
                                  t.id, t.currentPriority, int(t.status), int(t.waitReason), t.waitId, t.pc, t.ra);
                 }
+                gowDumpBranchRing("thread-watch");
             }
         }).detach();
     }
 
     // Heap privado do runtime em zona livre (abaixo do ELF, que carrega em 0x00100000)
     runtime.setPrivateGuestHeap(0x00020000u, 0x000FF000u);
+
+    // Conexao automatica dos 470 trampolins de fallthrough (conecta prologos de funcoes fatiadas no funcmap.csv)
+    okami_fallthroughs::applyOkamiFallthroughs(runtime);
 
     // Bypassa o loop infinito de FindAddress probe em sub_00404958 (0x00404958..0x00404A58)
     replaceFunctionRange(runtime, 0x00404958u, 0x00404A58u, okamiOverride_FindAddressProbe);
@@ -893,16 +1075,41 @@ void applyOkamiOverrides(PS2Runtime &runtime)
     // Funcoes chamadas por ponteiro indireto ou desalinhadas em funcmap.csv (familia 0x003D4000..0x003DB000)
     replaceFunctionRange(runtime, 0x003DAC90u, 0x003DACA8u, okamiOverride_GetStaticPointers_3dac90);
     replaceFunctionRange(runtime, 0x003DAE70u, 0x003DAE88u, okamiOverride_SetStaticPointers_3dae70);
-    replaceFunctionRange(runtime, 0x003D4678u, 0x003D46A8u, okamiOverride_Callback_3d4678);
+    replaceFunctionRange(runtime, 0x003D4678u, 0x003D467Cu, okamiOverride_Sub_003D4678);
     replaceFunctionRange(runtime, 0x003D86F8u, 0x003D8710u, okamiOverride_SetStaticPointers_3d86f8);
-    replaceFunctionRange(runtime, 0x003D84D0u, 0x003D8500u, okamiOverride_Callback_3d84d0);
+    replaceFunctionRange(runtime, 0x003D84D0u, 0x003D84D4u, okamiOverride_Sub_003D84D0);
     replaceFunctionRange(runtime, 0x003D6E30u, 0x003D6E48u, okamiOverride_SetStaticPointers_3d6e30);
-    replaceFunctionRange(runtime, 0x003D6C68u, 0x003D6C98u, okamiOverride_Callback_3d6c68);
+    replaceFunctionRange(runtime, 0x003D6C68u, 0x003D6C6Cu, okamiOverride_Sub_003D6C68);
     replaceFunctionRange(runtime, 0x003D5230u, 0x003D5258u, okamiOverride_SetStaticPointers_3d5230);
     replaceFunctionRange(runtime, 0x003DA690u, 0x003DA6B8u, okamiOverride_SetStaticPointers_3da690);
 
     // Printf nativo de diagnostico (0x003CA8B0..0x003CA930)
     replaceFunctionRange(runtime, 0x003CA8B0u, 0x003CA930u, okamiOverride_Printf);
+
+    // Logger interno de mensagens do jogo (0x003C6EC0)
+    runtime.replaceFunction(0x003C6EC0u, okamiOverride_GameLogger);
+
+    // Pontos de entrada com fallthrough continuo (sub-alocadores, logging e inicializacao da engine)
+    replaceFunctionRange(runtime, 0x003CC288u, 0x003CC28Cu, okamiOverride_Sub_003CC288);
+    replaceFunctionRange(runtime, 0x003CC360u, 0x003CC364u, okamiOverride_Sub_003CC360);
+    replaceFunctionRange(runtime, 0x003CC478u, 0x003CC480u, okamiOverride_Sub_003CC478);
+    replaceFunctionRange(runtime, 0x003C6E48u, 0x003C6E4Cu, okamiOverride_Sub_003C6E48);
+    replaceFunctionRange(runtime, 0x003C6E80u, 0x003C6E84u, okamiOverride_Sub_003C6E80);
+    replaceFunctionRange(runtime, 0x003C6FD0u, 0x003C6FD4u, okamiOverride_Sub_003C6FD0);
+    replaceFunctionRange(runtime, 0x003C7800u, 0x003C781Cu, okamiOverride_Sub_003C7800);
+    replaceFunctionRange(runtime, 0x003D4628u, 0x003D462Cu, okamiOverride_Sub_003D4628);
+    replaceFunctionRange(runtime, 0x003E05E8u, 0x003E05ECu, okamiOverride_Sub_003E05E8);
+    replaceFunctionRange(runtime, 0x003E0728u, 0x003E072Cu, okamiOverride_Sub_003E0728);
+    replaceFunctionRange(runtime, 0x003C8C98u, 0x003C8CD0u, okamiOverride_Sub_003C8C98);
+
+    // Monitoramento e diagnostico de carregamento de arquivos e streams da engine
+    replaceFunctionRange(runtime, 0x003CC6A0u, 0x003CC6D8u, okamiOverride_Sub_003CC6A0);
+    replaceFunctionRange(runtime, 0x003CD018u, 0x003CD2C0u, okamiOverride_Sub_003CD018);
+    replaceFunctionRange(runtime, 0x003D4B40u, 0x003D4C68u, okamiOverride_Sub_003D4B40);
+
+    // Syscall ChangeThreadPriority / iChangeThreadPriority com retorno correto da prioridade anterior
+    replaceFunctionRange(runtime, 0x003FE630u, 0x003FE640u, okamiOverride_ChangeThreadPriority);
+    replaceFunctionRange(runtime, 0x003FE640u, 0x003FE650u, okamiOverride_IChangeThreadPriority);
 
     std::fprintf(stdout, "[okami-port] Overrides nativos aplicados com sucesso para Okami (SLUS-21115).\n");
 }

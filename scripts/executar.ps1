@@ -32,8 +32,14 @@ if (-not $elf) {
 
 $elfDir = Split-Path -Parent $elf
 $env:PS2X_DISC_PATH = $elfDir
-if ($Janela) { $env:OKAMI_PANTALLA_COMPLETA = '0' }
-if ($Fps)    { $env:OKAMI_FPS = '1' }
+if ($Janela) { 
+    $env:GOW_PANTALLA_COMPLETA = '0'
+    $env:OKAMI_PANTALLA_COMPLETA = '0' 
+}
+if ($Fps) { 
+    $env:GOW_FPS = '1'
+    $env:OKAMI_FPS = '1' 
+}
 
 # Variaveis de runtime
 if (-not $env:PS2X_GS_WORKER) { $env:PS2X_GS_WORKER = '1' }

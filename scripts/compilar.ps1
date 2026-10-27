@@ -61,6 +61,20 @@ $overrides = Join-Path $RepoRoot 'src\okami_overrides.cpp'
 $git = 'git'
 if (-not (Get-Command git -ErrorAction SilentlyContinue)) { $git = Join-Path $env:ProgramFiles 'Git\cmd\git.exe' }
 
+# Localizacao automatica do Ninja no Visual Studio caso nao esteja no PATH
+if (-not (Get-Command ninja -ErrorAction SilentlyContinue)) {
+    $vsWhere = "${env:ProgramFiles(x86)}\Microsoft Visual Studio\Installer\vswhere.exe"
+    if (Test-Path -LiteralPath $vsWhere) {
+        $vsInst = & $vsWhere -latest -products * -property installationPath
+        if ($vsInst) {
+            $candNinja = Join-Path $vsInst 'Common7\IDE\CommonExtensions\Microsoft\CMake\Ninja'
+            if (Test-Path -LiteralPath (Join-Path $candNinja 'ninja.exe')) {
+                $env:PATH = "$candNinja;$env:PATH"
+            }
+        }
+    }
+}
+
 function Run([string]$exe, [string[]]$a) {
     Write-Host ">> $exe $($a -join ' ')"
     & $exe @a

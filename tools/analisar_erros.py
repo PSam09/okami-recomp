@@ -25,7 +25,7 @@ PATRONES = [
     ("RECOMP_SOBREPOSICAO_FUNCAO", re.compile(r"overlap.*?0x(?P<dir1>[0-9A-Fa-f]+).*?0x(?P<dir2>[0-9A-Fa-f]+)")),
     ("RUNTIME_BRANCH_MISSING_TARGET", re.compile(r"\[guest-branch:missing-target\].*?source=0x(?P<src>[0-9a-fA-F]+)\s+target=0x(?P<dst>[0-9a-fA-F]+)")),
     ("RUNTIME_THREAD_DORMANT", re.compile(r"\[(?:gow|okami)-trace\]\s+(?P<detalhe>main thread dormant)")),
-    ("RUNTIME_SYSCALL_NAO_IMPLEMENTADA", re.compile(r"(?:unhandled|unknown) syscall:? 0x(?P<num>[0-9a-fA-F]+)")),
+    ("RUNTIME_SYSCALL_NAO_IMPLEMENTADA", re.compile(r"(?:(?:unhandled|unknown|unimplemented)\s+(?:ps2\s+)?syscall|\[Syscall TODO\]).*?(?:Chosen=0x(?P<num>[0-9a-fA-F]+)|v1=0x(?P<num2>[0-9a-fA-F]+)|syscall:?\s*0x(?P<num3>[0-9a-fA-F]+))", re.IGNORECASE)),
     ("RUNTIME_IOP_RPC_NAO_IMPLEMENTADA", re.compile(r"(?:unhandled|unknown) (?:IOP RPC|SifRpc):? 0x(?P<rpc>[0-9a-fA-F]+)")),
     ("RUNTIME_ERRO_DMA", re.compile(r"(?:DMA error|stall on channel) (?P<canal>\d+)")),
     ("RUNTIME_ACESSO_INVALIDO", re.compile(r"(?:Access violation|Segmentation fault|read unmapped) (?:at|address) 0x(?P<dir>[0-9a-fA-F]+)")),
@@ -93,6 +93,8 @@ def apresentar_informe(coincidencias, no_clasificadas):
         print(" -> Syscalls pendentes: execute 'python tools/auto_fix.py --syscalls'")
     if "MSVC_IDENTIFICADOR_NAO_DECLARADO" in coincidencias:
         print(" -> Headers ou tipos ausentes no runner: execute 'python tools/auto_fix.py --headers'")
+    if "RUNTIME_BRANCH_MISSING_TARGET" in coincidencias:
+        print(" -> Alvos de branch indireto ausentes: execute 'python tools/auto_fix.py <log> --targets'")
     print("-" * 70)
 
 def main():

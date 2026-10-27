@@ -1,0 +1,44 @@
+# Game files (Never commit copyright game files, discs or binaries)
+/game/
+*.iso
+*.ISO
+*.bin
+*.BIN
+*.elf
+*.ELF
+*.cso
+*.CSO
+*.mdf
+*.mds
+
+# Work directories and PS2Recomp checkout
+/PS2Recomp/
+/out/
+/build/
+/generado/
+/gowport/
+/okamiport/
+
+# Logs and runtime dumps
+/logs/
+*.log
+*.dump
+
+# Visual Studio & CMake build artifacts
+.vs/
+out/
+build/
+CMakeFiles/
+CMakeCache.txt
+*.obj
+*.pdb
+*.ilk
+*.exe
+*.dll
+
+# Python cache
+__pycache__/
+*.pyc
+
+# Local scratch
+scratch/

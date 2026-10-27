@@ -1,0 +1,51 @@
+# PS2Recomp configuration for Okami (SLUS_211.15)
+# Generado por tools/elf_functions.py
+
+[general]
+# Path to input ELF file
+input = "@ELF@"
+
+# Path to function map CSV
+ghidra_output = "@MAP@"
+
+# Path to output directory
+output = "@OUT@"
+
+# Single file output mode
+single_file_output = false
+
+# Patch policy
+patch_syscalls = false
+patch_cop0 = true
+patch_cache = true
+
+# Funciones stubbed con handler nativo en el runtime
+stubs = [
+  "SetupThread@0x001001C4",
+  "SetupContext@0x001001E0",
+  "ExitThread@0x00100250",
+  "ResetEE@0x003FE390",
+  "Exit@0x003FE3C0",
+  "CreateThread@0x003FE5A0",
+  "StartThread@0x003FE5C0",
+  "TerminateThread@0x003FE5F0",
+  "ChangeThreadPriority@0x003FE630",
+  "SleepThread@0x003FE6C0",
+  "WakeupThread@0x003FE6D0",
+  "SetupFD@0x003FE7A0",
+  "SetupFreeFD@0x003FE7B0",
+  "FlushCache@0x003FEA20",
+  "SifSetDma@0x003FEB40",
+  "SifSetDChain@0x003FEB60",
+  "SifSetReg@0x003FEB80",
+  "SifGetReg@0x003FEBA0",
+]
+
+# Entry points adicionales si aplica
+entry_points = [
+  "entry@0x00100008",
+]
+
+# Parches a instrucciones problematicas detectadas en el ELF
+instruction_patches = [
+]

@@ -17,7 +17,7 @@ Port nativo para PC de *Okami* (PS2, `SLUS-21115`).
 | Inicialização de subsistemas nativos (IOP Heap, Áudio, DTX/SJUNI, Padman) | ✅ Concluído | Todos os canais de áudio, sintetizador e controle inicializados com sucesso |
 | Carregamento de dados de disco e cache de arquivos (`DVCI`) | ✅ Concluído | `0FLISTDV.DIR`, `WOLVES_U.FST`, `_DATA0.AFS` (2 GB), `_DATA1.AFS` (1.7 GB) e partições virtuais AFS mapeadas |
 | Execução contínua da engine do jogo | ✅ Concluído | Loop principal da engine (`sub_001743B8`) em execução contínua a 100% da velocidade (~300 MHz EE) e VSync a 60 fps |
-| Apresentação de menus / telas de título | 🔧 Em progresso | Processamento de listas de comandos gráficos GS/VIF1 e render-targets |
+| Apresentação de menus / telas de título | 🔧 Em progresso | Processamento de listas de comandos gráficos GS/VIF1 e render-targets (engine rodando a 60 FPS estáveis) |
 | Campanha completa jogável | ⏳ Futuro | Objetivos futuros |
 
 ## Registro de Padrões e Soluções Automatizadas
@@ -123,4 +123,15 @@ Port nativo para PC de *Okami* (PS2, `SLUS-21115`).
       3. Realiza a leitura binária direta e imediata dos setores requisitados a partir do arquivo `.AFS` no disco para o buffer especificado no RDRAM.
       4. Marca os flags de conclusão no descritor de stream (`handle->status = 3`), zera os setores restantes e retorna `-1` (código de fim de arquivo / transferência concluída).
       5. Resultado: A transição de leitura de partição avança instantaneamente de `stat = 2` para `stat = 4` (Ready / Complete), permitindo que `sub_001743B8` conclua com êxito a carga das 3 partições fundamentais (`wp`, `ut`, `gt`) e prossiga imediatamente para a inicialização dos recursos de cena e renderização gráfica.
+
+17. **Correção do Write-0-to-Clear (W0C) no Timer 2 do EE (`ps2_memory.cpp`)**:
+    - *Padrão*: Execução presa em laço de polling contínuo do driver do Timer 2 em `0x004054C4`..`0x00405524`, com leitura repetitiva de `0x10001010` (status de modo do Timer 2), bloqueando a inicialização da engine.
+    - *Causa*: Conforme o manual de hardware do EE do PS2, as flags `EQUF` (bit 10) e `OVFF` (bit 11) de `Tn_MODE` são limpas pelo software quando se escreve **0** nelas (Write-0-to-Clear / W0C). O PS2Recomp continha um bug implementando W1C (`status = previous & ~value`), de forma que quando `sub_004052D0` escrevia `andi $a0, $s2, 0xF7FF` (bit 11 zerado), a flag de overflow nunca limpava.
+    - *Solução por Padrão*: Implementada a limpeza correta W0C das flags em `ps2_memory.cpp` (`ps2recomp-ee-timer-w0c.patch`), permitindo que a libkernel do PS2 limpe o overflow instantaneamente e a CPU avance para o frame loop central em `sub_003439D8`.
+
+18. **Monitoramento e Tradução do Contador de Desempenho e Frame Loop Oficial (`ps2_runtime.cpp`)**:
+    - *Padrão*: O contador de FPS na tela exibia termos em espanhol ("juego", "imagenes", "pantalla") e marcava "0 FPS juego", mesmo com a engine rodando a 60 FPS na CPU.
+    - *Causa*: O contador dependia do PC de God of War via dispatcher. No Okami, o laço de frame roda internamente em C++ via `sub_003439D8`, atualizando o contador nativo em RDRAM `0x00680C00` a cada ciclo via interrupção VBlank (`sub_00343ED0`).
+    - *Solução por Padrão*: Conectada a medição de frames de jogo diretamente a `*(uint32_t*)(rdram + 0x00680C00)` e traduzidas todas as mensagens de tela e registros para Português estrito (`"%.0f FPS jogo  %.0f quadros  (tela %.0f Hz)"`). O medidor agora reflete **60 FPS jogo (verde)** em tempo real.
+
 

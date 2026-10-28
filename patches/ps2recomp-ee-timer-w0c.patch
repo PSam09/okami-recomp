@@ -1,0 +1,16 @@
+diff --git a/ps2xRuntime/src/lib/ps2_memory.cpp b/ps2xRuntime/src/lib/ps2_memory.cpp
+index 37b6a4d..1bf7855 100644
+--- a/ps2xRuntime/src/lib/ps2_memory.cpp
++++ b/ps2xRuntime/src/lib/ps2_memory.cpp
+@@ -497,7 +497,10 @@ bool PS2Memory::eeTimerStore(uint32_t address, uint32_t value)
+     case kEeTimerModeOffset:
+     {
+         const uint32_t previousMode = timer.mode;
+-        const uint32_t status = (previousMode & kEeTimerModeStatusMask) & ~(value & kEeTimerModeStatusMask);
++        // Okami-Port: Sony libkernel usa Write-0-to-Clear (W0C) para flags de status EQUF (0x400) e OVFF (0x800).
++        uint32_t status = previousMode & kEeTimerModeStatusMask;
++        if ((value & kEeTimerModeEquf) == 0u) status &= ~kEeTimerModeEquf;
++        if ((value & kEeTimerModeOvff) == 0u) status &= ~kEeTimerModeOvff;
+         const uint32_t mode = (value & kEeTimerModeConfigMask) | status;
+         const bool clockChanged = ((previousMode ^ mode) & (kEeTimerModeClksMask | kEeTimerModeCue)) != 0u;
+         const bool wasClockOnly = isClockOnlyEeTimer(previousMode) && (previousMode & kEeTimerModeCue) != 0u;

@@ -54,7 +54,7 @@ index f086621..76c569b 100644
 +            const double second = std::chrono::duration<double>(now - secondStart).count();
 +            if (second >= 1.0)
 +            {
-+                std::fprintf(stderr, "[gow-fps] t=%.0f juego=%.1f min=%.1f pantalla=%.1f\n",
++                std::fprintf(stderr, "[okami-fps] t=%.0f jogo=%.1f min=%.1f tela=%.1f\n",
 +                             std::chrono::duration<double>(now - start).count(),
 +                             static_cast<double>(guest - secondGuest) / second, secondMin,
 +                             static_cast<double>(hostFrames - secondHost) / second);
@@ -65,7 +65,7 @@ index f086621..76c569b 100644
 +            }
 +            (void)runtime;
 +            char text[96];
-+            std::snprintf(text, sizeof(text), "%.0f FPS  (pantalla %.0f Hz)", guestFps, hostFps);
++            std::snprintf(text, sizeof(text), "%.0f FPS  (tela %.0f Hz)", guestFps, hostFps);
 +            const Color colour = guestFps >= 57.0 ? GREEN : guestFps >= 45.0 ? YELLOW : RED;
 +            const int size = std::max(20, GetScreenHeight() / 30); // ~36 px a 1080p
 +            const int pad = size / 2;

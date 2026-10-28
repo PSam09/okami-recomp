@@ -56,6 +56,7 @@ $vu0Vf0Patch               = Join-Path $RepoRoot 'patches\ps2recomp-vu0-vf0.patc
 $vu0Vi0Patch               = Join-Path $RepoRoot 'patches\ps2recomp-vu0-vi0.patch'
 $vu1nHeadsPatch            = Join-Path $RepoRoot 'patches\ps2recomp-vu1n-heads.patch'
 $okamiRuntimePatch         = Join-Path $RepoRoot 'patches\ps2recomp-okami-runtime.patch'
+$eeTimerW0cPatch           = Join-Path $RepoRoot 'patches\ps2recomp-ee-timer-w0c.patch'
 
 $overrides = Join-Path $RepoRoot 'src\okami_overrides.cpp'
 
@@ -119,7 +120,7 @@ $patches = @(
     $testNoControllerPatch, $displayLatchPatch, $cdStopPatch, $iopDelayOutsidePatch, $mpegEndProgramPatch,
     $eeFastpathPatch, $gsPresentPriorityPatch, $gsEglLinuxPatch, $vu1NativeCapturePatch, $gsZAsColorPatch,
     $gsGroupedVolumesPatch, $fpuBarreraPatch, $ee120hzPatch, $gsFramesInFlightPatch,
-    $vu1BranchlessClipPatch, $vu1MaddSaturatedPatch, $okamiRuntimePatch
+    $vu1BranchlessClipPatch, $vu1MaddSaturatedPatch, $okamiRuntimePatch, $eeTimerW0cPatch
 )
 foreach ($p in $patches) {
     if (Test-Path -LiteralPath $p) {

@@ -73,10 +73,18 @@ index 76c569b..757a92c 100644
  
          void frame(PS2Runtime &runtime)
          {
-@@ -1570,12 +1572,16 @@ namespace
+@@ -1570,12 +1572,23 @@ namespace
                  return;
              const auto now = std::chrono::steady_clock::now();
-             const uint64_t guest = g_gowFpsGuestFrames.load(std::memory_order_relaxed);
+-            const uint64_t guest = g_gowFpsGuestFrames.load(std::memory_order_relaxed);
++            uint64_t guest = g_gowFpsGuestFrames.load(std::memory_order_relaxed);
++            const uint8_t *rdram = runtime.memory().getRDRAM();
++            if (rdram)
++            {
++                const uint32_t okamiFrames = *reinterpret_cast<const uint32_t*>(rdram + 0x00680C00u);
++                if (okamiFrames > 0)
++                    guest = okamiFrames;
++            }
 +            const uint64_t shown = g_gowPresentedFrames.load(std::memory_order_relaxed);
              const double window = std::chrono::duration<double>(now - windowStart).count();
              if (window >= 0.25)
@@ -94,8 +102,8 @@ index 76c569b..757a92c 100644
              const double second = std::chrono::duration<double>(now - secondStart).count();
              if (second >= 1.0)
              {
--                std::fprintf(stderr, "[gow-fps] t=%.0f juego=%.1f min=%.1f pantalla=%.1f\n",
-+                std::fprintf(stderr, "[gow-fps] t=%.0f juego=%.1f min=%.1f imagenes=%.1f min_imagenes=%.1f pantalla=%.1f\n",
+-                std::fprintf(stderr, "[okami-fps] t=%.0f jogo=%.1f min=%.1f tela=%.1f\n",
++                std::fprintf(stderr, "[okami-fps] t=%.0f jogo=%.1f min=%.1f quadros=%.1f min_quadros=%.1f tela=%.1f\n",
                               std::chrono::duration<double>(now - start).count(),
                               static_cast<double>(guest - secondGuest) / second, secondMin,
 +                             static_cast<double>(shown - secondShown) / second, secondShownMin,

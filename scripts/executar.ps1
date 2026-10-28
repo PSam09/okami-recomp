@@ -48,6 +48,10 @@ Write-Host "Iniciando Okami Native Port..."
 Write-Host "Binario: $exePath"
 Write-Host "ELF:     $elf"
 Write-Host "Dados:   $env:PS2X_DISC_PATH"
+Write-Host "--------------------------------------------------------"
+Write-Host "Iniciando a janela grafica nativa do jogo ('PS2-Recomp')..."
+Write-Host "Pressione F11 para alternar entre Tela Cheia e Janela. Pressione F2 para medidor de FPS."
+Write-Host "--------------------------------------------------------"
 
 $outLog = Join-Path $LogsDir 'executar.log'
 $errLog = Join-Path $LogsDir 'executar_err.log'
@@ -62,10 +66,39 @@ $launchParams = @{
     WorkingDirectory = $elfDir
     RedirectStandardOutput = $outLog
     RedirectStandardError = $errLog
+    NoNewWindow = $true
     PassThru = $true
 }
 
 $proc = Start-Process @launchParams
+
+# Tentar focar e trazer a janela grafica do jogo para o primeiro plano
+try {
+    Add-Type -Name Win32Window -Namespace Native -MemberDefinition @"
+        [DllImport("user32.dll", SetLastError = true, CharSet = CharSet.Auto)]
+        public static extern IntPtr FindWindow(string lpClassName, string lpWindowName);
+        [DllImport("user32.dll")]
+        public static extern bool SetForegroundWindow(IntPtr hWnd);
+        [DllImport("user32.dll")]
+        public static extern bool ShowWindow(IntPtr hWnd, int nCmdShow);
+"@ -ErrorAction SilentlyContinue
+    for ($i = 0; $i -lt 30; $i++) {
+        Start-Sleep -Milliseconds 200
+        if ($proc.HasExited) { break }
+        $hwnd = [Native.Win32Window]::FindWindow($null, "PS2-Recomp | SLUS_211.15")
+        if ($hwnd -eq [IntPtr]::Zero) {
+            $p = Get-Process -Id $proc.Id -ErrorAction SilentlyContinue
+            if ($p -and $p.MainWindowHandle -ne [IntPtr]::Zero) {
+                $hwnd = $p.MainWindowHandle
+            }
+        }
+        if ($hwnd -ne [IntPtr]::Zero) {
+            [Native.Win32Window]::ShowWindow($hwnd, 9) | Out-Null
+            [Native.Win32Window]::SetForegroundWindow($hwnd) | Out-Null
+            break
+        }
+    }
+} catch {}
 
 if ($Segundos -gt 0) {
     Write-Host "Executando por $Segundos segundos..."

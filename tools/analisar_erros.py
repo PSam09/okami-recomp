@@ -29,6 +29,7 @@ PATRONES = [
     ("RUNTIME_IOP_RPC_NAO_IMPLEMENTADA", re.compile(r"(?:unhandled|unknown) (?:IOP RPC|SifRpc):? 0x(?P<rpc>[0-9a-fA-F]+)")),
     ("RUNTIME_ERRO_DMA", re.compile(r"(?:DMA error|stall on channel) (?P<canal>\d+)")),
     ("RUNTIME_ACESSO_INVALIDO", re.compile(r"(?:Access violation|Segmentation fault|read unmapped) (?:at|address) 0x(?P<dir>[0-9a-fA-F]+)")),
+    ("RUNTIME_STALL_LEITURA_PARTICAO", re.compile(r"\[okami-ptstat\].*?stat=(?P<stat>[^4\s]+).*?v0=(?P<v0>[^4\s]+)")),
     ("RUNTIME_VU1_DESCONHECIDO", re.compile(r"VU1.*?(?:unknown|unimplemented|stall)")),
 ]
 

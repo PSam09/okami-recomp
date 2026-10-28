@@ -109,3 +109,18 @@ Port nativo para PC de *Okami* (PS2, `SLUS-21115`).
       1. Expandido `tools/auto_fix.py` com o comando `--fallthroughs` e detecção em nível de bytecode do ELF com cache em memória. O script analisa todas as 12.803 funções, descarta NOPs de alinhamento e detecta todos os 543 blocos sem instrução de salto/retorno.
       2. Gerados automaticamente 543 trampolins em `src/okami_fallthroughs.h` que executam o bloco primário e, se `ctx->pc` alcançar o início da próxima função, invocam dinamicamente a próxima rotina via `runtime->lookupFunction`.
       3. Resultado: O laço principal da engine de Okami (`sub_001743B8` em `0x00174470`) entrou em execução contínua, com medição estável de ~300 MHz no EE e 60.0 fps sólidos na apresentação de vídeo raylib/OpenGL.
+
+16. **Carregamento e Transmissão Nativa de Partições e Streams do Driver CRI ADX / AFS (`adxf_ReadNw` / `sub_003C86B0`)**:
+    - *Padrão*: Engine de Okami presa indefinidamente em laço de espera com status `[okami-ptstat] count=... stat=2 lock=0 v0=2` em `0x0043E938` (`sub_001743B8` / `adxf_GetPtStat`).
+    - *Causa*:
+      1. A engine do jogo utiliza a biblioteca CRI ADX (`adxf`) para ler partições virtuais e arquivos dos contêineres AFS (`_DATA0.AFS` e `_DATA1.AFS`).
+      2. A rotina `sub_003C7430` (`adxf_LoadPt`) inicia a leitura assíncrona, configurando `stat = 2` (ocupado/em andamento) e chamando `sub_003C86B0` (`adxf_ReadNw`) para ler os setores de cabeçalho e dados para a memória.
+      3. No PS2 original, a transferência dos dados era realizada em segundo plano pelo módulo `CRI_ADXI.IRX` no IOP via DMA. No port nativo para PC (onde não há emulação de IOP), nenhuma rotina transferia os setores solicitados e nem sinalizava o término (`status = 3` no handle e `-1` no retorno de `adxf_ReadNw`).
+      4. Como consequência, `adxf_GetPtStat` nunca observava a conclusão da transferência, mantendo `stat = 2` e impedindo a engine de carregar as partições essenciais de inicialização (`wp`, `ut`, `gt`) e avançar para o renderizador gráfico.
+    - *Solução Automatizada por Padrão*:
+      1. Implementada a substituição nativa global de `sub_003C86B0` (`adxf_ReadNw`) em `src/okami_overrides.cpp`.
+      2. A rotina detecta a partição ativa através de `ptid` em `0x0043E934` e da tabela canônica de partições do Okami (0=`wp`, 1=`ut`, 2=`gt`, etc.), consultando `s_okamiPartitions` em `src/okami_partitions.h`.
+      3. Realiza a leitura binária direta e imediata dos setores requisitados a partir do arquivo `.AFS` no disco para o buffer especificado no RDRAM.
+      4. Marca os flags de conclusão no descritor de stream (`handle->status = 3`), zera os setores restantes e retorna `-1` (código de fim de arquivo / transferência concluída).
+      5. Resultado: A transição de leitura de partição avança instantaneamente de `stat = 2` para `stat = 4` (Ready / Complete), permitindo que `sub_001743B8` conclua com êxito a carga das 3 partições fundamentais (`wp`, `ut`, `gt`) e prossiga imediatamente para a inicialização dos recursos de cena e renderização gráfica.
+

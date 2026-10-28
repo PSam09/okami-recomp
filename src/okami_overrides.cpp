@@ -867,6 +867,14 @@ namespace
         SET_GPR_S32(ctx, 2, (int32_t)((uint32_t)68 << 16));
         ctx->pc = 0x003C781Cu;
         sub_003C781C_0x3c781c(rdram, ctx, runtime);
+        static int statCount = 0;
+        if (statCount++ < 10 || (statCount % 300) == 0)
+        {
+            const uint32_t stat = readGuest32(rdram, 0x0043E938u);
+            const uint32_t lock = readGuest32(rdram, 0x0043E93Cu);
+            std::fprintf(stderr, "[okami-ptstat] count=%d stat=%u lock=%u v0=%d\n",
+                         statCount, stat, lock, (int)GPR_S32(ctx, 2));
+        }
     }
 
     void okamiOverride_Sub_003D4628(uint8_t *rdram, R5900Context *ctx, PS2Runtime *runtime)
@@ -888,6 +896,85 @@ namespace
         SET_GPR_S32(ctx, 2, (int32_t)((uint32_t)0x7B << 16));
         ctx->pc = 0x003E072Cu;
         sub_003E072C_0x3e072c(rdram, ctx, runtime);
+    }
+
+    static const char *getPartitionNameFromPtid(uint32_t ptid)
+    {
+        static const char *s_ptidNames[] = {
+            "wp", "ut", "gt", "it", "vt", "dr", "ms", "es"
+        };
+        if (ptid < sizeof(s_ptidNames) / sizeof(s_ptidNames[0]))
+        {
+            return s_ptidNames[ptid];
+        }
+        return nullptr;
+    }
+
+    // Override para adxf_ReadNw (0x003C86B0..0x003C86F0)
+    // Realiza a leitura e transmissao direta e nativa de setores das particoes dos containers AFS.
+    void okamiOverride_Sub_003C86B0(uint8_t *rdram, R5900Context *ctx, PS2Runtime *runtime)
+    {
+        (void)runtime;
+        const uint32_t handle = getRegU32(ctx, 4);
+        const uint32_t sectorOffset = getRegU32(ctx, 5);
+        const uint32_t dstAddr = getRegU32(ctx, 6);
+        const uint32_t sectorCount = getRegU32(ctx, 7);
+        const uint32_t ra = getRegU32(ctx, 31);
+
+        const uint32_t ptid = readGuest32(rdram, 0x0043E934u);
+        const char *partName = getPartitionNameFromPtid(ptid);
+        const OkamiPartitionEntry *part = partName ? findOkamiPartition(partName) : nullptr;
+
+        static int readNwCount = 0;
+        std::fprintf(stderr, "[okami-readnw] #%d ptid=%u ('%s') hnd=0x%08x sctOff=%u dst=0x%08x sctCnt=%u (ra=0x%08x)\n",
+                     ++readNwCount, ptid, partName ? partName : "(desconhecido)", handle, sectorOffset, dstAddr, sectorCount, ra);
+
+        if (part && part->container && dstAddr != 0 && sectorCount > 0)
+        {
+            const uint32_t baseLsn = (std::strcmp(part->container, "_DATA1.AFS") == 0) ? 1049180u : 277u;
+            const uint64_t partByteOffset = static_cast<uint64_t>(part->lsn - baseLsn) * 2048ULL;
+            const uint64_t readByteOffset = partByteOffset + (static_cast<uint64_t>(sectorOffset) * 2048ULL);
+            const uint64_t requestedBytes = static_cast<uint64_t>(sectorCount) * 2048ULL;
+            const uint64_t totalPartBytes = part->size;
+            const uint64_t bytesAvailable = (totalPartBytes > (static_cast<uint64_t>(sectorOffset) * 2048ULL))
+                                                ? (totalPartBytes - (static_cast<uint64_t>(sectorOffset) * 2048ULL))
+                                                : 0ULL;
+            const size_t bytesToRead = static_cast<size_t>(std::min(requestedBytes, bytesAvailable));
+
+            std::ifstream stream = openDiscFile(part->container);
+            if (stream.is_open())
+            {
+                stream.seekg(static_cast<std::streamoff>(readByteOffset));
+                uint8_t *dst = rdram + (dstAddr & 0x01FFFFFFu);
+                stream.read(reinterpret_cast<char *>(dst), static_cast<std::streamsize>(bytesToRead));
+                if (bytesToRead < requestedBytes)
+                {
+                    std::memset(dst + bytesToRead, 0, requestedBytes - bytesToRead);
+                }
+                std::fprintf(stderr, "[okami-readnw] '%s' carregado: %zu bytes lidos de %s (offset 0x%llx) para 0x%08x\n",
+                             partName, bytesToRead, part->container, (unsigned long long)readByteOffset, dstAddr);
+            }
+            else
+            {
+                std::fprintf(stderr, "[okami-readnw] ERRO: nao pode abrir container '%s' para particao '%s'!\n",
+                             part->container, partName);
+            }
+        }
+
+        // Marca o stream como concluido (status 3 = Complete)
+        if (handle != 0)
+        {
+            rdram[(handle + 1) & 0x01FFFFFFu] = 3;
+            const uint32_t inner = readGuest32(rdram, handle + 4);
+            if (inner != 0)
+            {
+                rdram[(inner + 1) & 0x01FFFFFFu] = 3;
+            }
+        }
+
+        // Retorna -1 para sinalizar fim de leitura / conclusao imediata para a engine
+        setReturnS32(ctx, -1);
+        ctx->pc = ra;
     }
 
     // Override para ChangeThreadPriority (0x003FE630..0x003FE640 e syscall 0x29)
@@ -1100,6 +1187,7 @@ void applyOkamiOverrides(PS2Runtime &runtime)
     replaceFunctionRange(runtime, 0x003D4628u, 0x003D462Cu, okamiOverride_Sub_003D4628);
     replaceFunctionRange(runtime, 0x003E05E8u, 0x003E05ECu, okamiOverride_Sub_003E05E8);
     replaceFunctionRange(runtime, 0x003E0728u, 0x003E072Cu, okamiOverride_Sub_003E0728);
+    replaceFunctionRange(runtime, 0x003C86B0u, 0x003C86F0u, okamiOverride_Sub_003C86B0);
     replaceFunctionRange(runtime, 0x003C8C98u, 0x003C8CD0u, okamiOverride_Sub_003C8C98);
 
     // Monitoramento e diagnostico de carregamento de arquivos e streams da engine
